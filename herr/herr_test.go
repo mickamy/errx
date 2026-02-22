@@ -5,22 +5,28 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/mickamy/errx"
 	"github.com/mickamy/errx/herr"
 )
 
-func TestRegisterCode(t *testing.T) {
-	// Not parallel: RegisterCode writes to package-level maps.
-	custom := errx.Code("payment_required")
-	herr.RegisterCode(custom, http.StatusPaymentRequired)
+const testCustomCode errx.Code = "payment_required"
 
-	if got := herr.ToHTTPStatus(custom); got != http.StatusPaymentRequired {
-		t.Errorf("ToHTTPStatus(%q) = %d, want %d", custom, got, http.StatusPaymentRequired)
+func TestMain(m *testing.M) {
+	herr.RegisterCode(testCustomCode, http.StatusPaymentRequired)
+	os.Exit(m.Run())
+}
+
+func TestRegisterCode(t *testing.T) {
+	t.Parallel()
+
+	if got := herr.ToHTTPStatus(testCustomCode); got != http.StatusPaymentRequired {
+		t.Errorf("ToHTTPStatus(%q) = %d, want %d", testCustomCode, got, http.StatusPaymentRequired)
 	}
-	if got := herr.ToErrxCode(http.StatusPaymentRequired); got != custom {
-		t.Errorf("ToErrxCode(%d) = %q, want %q", http.StatusPaymentRequired, got, custom)
+	if got := herr.ToErrxCode(http.StatusPaymentRequired); got != testCustomCode {
+		t.Errorf("ToErrxCode(%d) = %q, want %q", http.StatusPaymentRequired, got, testCustomCode)
 	}
 }
 

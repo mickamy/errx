@@ -2,6 +2,7 @@ package cerr_test
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -11,17 +12,22 @@ import (
 	"github.com/mickamy/errx/cerr"
 )
 
-func TestRegisterCode(t *testing.T) {
-	// Not parallel: RegisterCode writes to package-level maps.
-	custom := errx.Code("payment_required")
-	customConnect := connect.Code(100)
-	cerr.RegisterCode(custom, customConnect)
+const testCustomCode errx.Code = "payment_required"
+const testCustomConnect connect.Code = 100
 
-	if got := cerr.ToConnectCode(custom); got != customConnect {
-		t.Errorf("ToConnectCode(%q) = %v, want %v", custom, got, customConnect)
+func TestMain(m *testing.M) {
+	cerr.RegisterCode(testCustomCode, testCustomConnect)
+	os.Exit(m.Run())
+}
+
+func TestRegisterCode(t *testing.T) {
+	t.Parallel()
+
+	if got := cerr.ToConnectCode(testCustomCode); got != testCustomConnect {
+		t.Errorf("ToConnectCode(%q) = %v, want %v", testCustomCode, got, testCustomConnect)
 	}
-	if got := cerr.ToErrxCode(customConnect); got != custom {
-		t.Errorf("ToErrxCode(%v) = %q, want %q", customConnect, got, custom)
+	if got := cerr.ToErrxCode(testCustomConnect); got != testCustomCode {
+		t.Errorf("ToErrxCode(%v) = %q, want %q", testCustomConnect, got, testCustomCode)
 	}
 }
 
