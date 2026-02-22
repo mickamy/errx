@@ -60,7 +60,10 @@ func TestLogValue_NoCode(t *testing.T) {
 		t.Fatalf("failed to parse JSON: %v", jsonErr)
 	}
 
-	errObj := m["error"].(map[string]any)
+	errObj, ok := m["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error to be an object, got: %v", m["error"])
+	}
 	if _, exists := errObj["code"]; exists {
 		t.Error("code should not be present when unset")
 	}
@@ -131,7 +134,10 @@ func TestLogValue_WithStack(t *testing.T) {
 		t.Fatalf("failed to parse JSON: %v", jsonErr)
 	}
 
-	errObj := m["error"].(map[string]any)
+	errObj, ok := m["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error to be an object, got: %v", m["error"])
+	}
 	caller, ok := errObj["caller"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected caller group, got: %v", errObj["caller"])

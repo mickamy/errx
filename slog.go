@@ -39,9 +39,7 @@ func SlogAttr(err error) slog.Attr {
 		attrs = append(attrs, slog.String("code", c.String()))
 	}
 
-	for _, f := range Fields(err) {
-		attrs = append(attrs, f)
-	}
+	attrs = append(attrs, Fields(err)...)
 
 	if s := StackOf(err); s != nil {
 		frames := s.Frames()
@@ -60,4 +58,3 @@ func SlogAttr(err error) slog.Attr {
 
 // Ensure *Error implements slog.LogValuer at compile time.
 var _ slog.LogValuer = (*Error)(nil)
-

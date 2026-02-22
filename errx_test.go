@@ -142,7 +142,7 @@ func TestUnwrap(t *testing.T) {
 
 	cause := errors.New("root cause")
 	err := errx.Wrap(cause)
-	if err.Unwrap() != cause {
+	if !errors.Is(err.Unwrap(), cause) {
 		t.Error("Unwrap should return the cause")
 	}
 }
