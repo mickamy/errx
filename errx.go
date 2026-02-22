@@ -7,13 +7,15 @@ import (
 )
 
 // Error is a structured error that carries a message, optional cause,
-// classification code, structured fields, and an optional stack trace.
+// classification code, structured fields, an optional stack trace,
+// and arbitrary detail objects (e.g. proto.Message for gRPC error details).
 type Error struct {
-	msg    string
-	cause  error
-	code   Code
-	fields []slog.Attr
-	stack  *Stack
+	msg     string
+	cause   error
+	code    Code
+	fields  []slog.Attr
+	stack   *Stack
+	details []any
 }
 
 // New creates a new Error with the given message and optional structured fields.
@@ -65,6 +67,15 @@ func (e *Error) WithCode(c Code) *Error {
 	return &cp
 }
 
+// WithDetails returns a copy of the error with the given detail objects appended.
+// Details are opaque to errx; the caller decides the concrete types
+// (e.g. proto.Message for gRPC error details).
+func (e *Error) WithDetails(details ...any) *Error {
+	cp := *e
+	cp.details = append(append([]any(nil), e.details...), details...)
+	return &cp
+}
+
 // Error implements the error interface.
 func (e *Error) Error() string {
 	if e.msg == "" && e.cause != nil {
@@ -104,6 +115,28 @@ func Fields(err error) []slog.Attr {
 		}
 	}
 	return attrs
+}
+
+// DetailsOf collects all detail objects from the error chain (outermost first).
+func DetailsOf(err error) []any {
+	var details []any
+	for err != nil {
+		var ex *Error
+		if errors.As(err, &ex) {
+			details = append(details, ex.details...)
+			err = ex.cause
+		} else {
+			break
+		}
+	}
+	return details
+}
+
+// Localizable is implemented by errors that can provide localized messages.
+// This interface lives in errx (not grpcerr) so that non-gRPC transports
+// (e.g. HTTP) can also leverage localized error messages.
+type Localizable interface {
+	Localize(locale string) string
 }
 
 // argsToAttrs converts slog-style args (alternating key/value or slog.Attr) into []slog.Attr.

@@ -238,6 +238,91 @@ func TestFields_PlainError(t *testing.T) {
 	}
 }
 
+func TestWithDetails(t *testing.T) {
+	t.Parallel()
+
+	t.Run("appends details", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("fail").WithDetails("detail1", "detail2")
+		details := errx.DetailsOf(err)
+		if len(details) != 2 {
+			t.Fatalf("DetailsOf length = %d, want 2", len(details))
+		}
+		if details[0] != "detail1" || details[1] != "detail2" {
+			t.Errorf("unexpected details: %v", details)
+		}
+	})
+
+	t.Run("does not mutate original", func(t *testing.T) {
+		t.Parallel()
+		original := errx.New("fail").WithDetails("a")
+		_ = original.WithDetails("b")
+		details := errx.DetailsOf(original)
+		if len(details) != 1 {
+			t.Fatalf("original should have 1 detail, got %d", len(details))
+		}
+		if details[0] != "a" {
+			t.Errorf("original detail = %v, want %q", details[0], "a")
+		}
+	})
+
+	t.Run("accumulates across calls", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("fail").WithDetails("a").WithDetails("b")
+		details := errx.DetailsOf(err)
+		if len(details) != 2 {
+			t.Fatalf("DetailsOf length = %d, want 2", len(details))
+		}
+		if details[0] != "a" || details[1] != "b" {
+			t.Errorf("unexpected details: %v", details)
+		}
+	})
+}
+
+func TestDetailsOf(t *testing.T) {
+	t.Parallel()
+
+	t.Run("collects from chain outermost first", func(t *testing.T) {
+		t.Parallel()
+		inner := errx.New("inner").WithDetails("inner_detail")
+		outer := errx.Wrap(inner).WithDetails("outer_detail")
+		details := errx.DetailsOf(outer)
+		if len(details) != 2 {
+			t.Fatalf("DetailsOf length = %d, want 2", len(details))
+		}
+		if details[0] != "outer_detail" {
+			t.Errorf("first detail = %v, want %q", details[0], "outer_detail")
+		}
+		if details[1] != "inner_detail" {
+			t.Errorf("second detail = %v, want %q", details[1], "inner_detail")
+		}
+	})
+
+	t.Run("nil error returns nil", func(t *testing.T) {
+		t.Parallel()
+		details := errx.DetailsOf(nil)
+		if len(details) != 0 {
+			t.Errorf("DetailsOf(nil) should be empty, got %d", len(details))
+		}
+	})
+
+	t.Run("plain error returns nil", func(t *testing.T) {
+		t.Parallel()
+		details := errx.DetailsOf(errors.New("plain"))
+		if len(details) != 0 {
+			t.Errorf("DetailsOf on plain error should be empty, got %d", len(details))
+		}
+	})
+
+	t.Run("no details returns nil", func(t *testing.T) {
+		t.Parallel()
+		details := errx.DetailsOf(errx.New("no details"))
+		if len(details) != 0 {
+			t.Errorf("DetailsOf should be empty, got %d", len(details))
+		}
+	})
+}
+
 func TestArgsToAttrs_SlogAttr(t *testing.T) {
 	t.Parallel()
 
