@@ -3,15 +3,16 @@ package errx
 import "log/slog"
 
 // LogValue implements slog.LogValuer, allowing *Error to be logged directly as a structured value.
+// Fields are collected from the entire error chain (outermost first).
 func (e *Error) LogValue() slog.Value {
-	attrs := make([]slog.Attr, 0, 3+len(e.fields))
+	attrs := make([]slog.Attr, 0, 4)
 	attrs = append(attrs, slog.String("msg", e.Error()))
 	if c := e.Code(); c != "" {
 		attrs = append(attrs, slog.String("code", c.String()))
 	}
-	attrs = append(attrs, e.fields...)
-	if e.stack != nil {
-		frames := e.stack.Frames()
+	attrs = append(attrs, Fields(e)...)
+	if s := StackOf(e); s != nil {
+		frames := s.Frames()
 		if len(frames) > 0 {
 			f := frames[0]
 			attrs = append(attrs, slog.Group("caller",
