@@ -1,9 +1,10 @@
 # errx
 
-Structured errors for Go with first-class gRPC / Connect support.
+Structured errors for Go with first-class gRPC / Connect / HTTP support.
 
 - **Structured context** — attach typed codes and slog-native fields while keeping `errors.Is`/`errors.As` compatibility
-- **gRPC / Connect error details** — carry [google.rpc.error_details](https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto) (FieldViolation, ResourceInfo, etc.) on any error and let the interceptor convert them automatically
+- **gRPC / Connect / HTTP error details** — carry [google.rpc.error_details](https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto) (FieldViolation, ResourceInfo, etc.) on any error and let the interceptor/middleware convert them automatically
+- **RFC 9457** — HTTP errors follow [Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457) with `application/problem+json`
 - **Localization** — implement `errx.Localizable` on your domain errors; the interceptor auto-appends `LocalizedMessage` based on `Accept-Language`
 
 ## Install
@@ -17,6 +18,9 @@ go get github.com/mickamy/errx/gerr
 
 # Connect integration
 go get github.com/mickamy/errx/cerr
+
+# HTTP integration (RFC 9457)
+go get github.com/mickamy/errx/herr
 ```
 
 ## Quick start
@@ -30,8 +34,8 @@ err = errx.New("name is required").
     WithCode(errx.InvalidArgument).
     WithDetails(errx.FieldViolation("name", "must not be empty"))
 
-// The gRPC/Connect interceptor converts errx errors automatically —
-// handlers just return errors, no manual status construction needed.
+// The gRPC/Connect interceptor or HTTP middleware converts errx errors
+// automatically — handlers just return errors, no manual construction needed.
 ```
 
 ## errx (core)
@@ -48,7 +52,7 @@ err = errx.Wrapf(dbErr, "query %s failed", tableName)
 
 ### Error codes
 
-Codes are plain strings. Built-in codes map to gRPC/Connect status codes. Define your own:
+Codes are plain strings. Built-in codes map to gRPC/Connect/HTTP status codes. Define your own:
 
 ```go
 const PaymentRequired errx.Code = "payment_required"
@@ -71,7 +75,7 @@ errx.CodeOf(err)            // "not_found"
 
 ### Error details
 
-Attach transport-agnostic detail types to errors. The gRPC/Connect interceptors automatically convert them to proto types:
+Attach transport-agnostic detail types to errors. The gRPC/Connect interceptors convert them to proto types, and the HTTP middleware serializes them as JSON:
 
 ```go
 err := errx.New("bad request").
@@ -204,6 +208,56 @@ interceptor := cerr.NewInterceptor(
 ```go
 ce := cerr.ToConnectError(err)       // errx → *connect.Error (with details)
 ex := cerr.FromConnectError(ce)      // *connect.Error → *errx.Error (with details)
+```
+
+## herr (HTTP)
+
+HTTP integration with [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457) and middleware.
+
+### Middleware
+
+```go
+mux := http.NewServeMux()
+mux.Handle("GET /users/{id}", herr.Handler(getUser))
+
+func getUser(w http.ResponseWriter, r *http.Request) error {
+    // Just return an errx error. The middleware writes RFC 9457 JSON.
+    return errx.Wrap(ErrUserNotFound).
+        WithDetails(errx.ResourceInfo("User", r.PathValue("id"), "", "not found"))
+}
+```
+
+Response (`Content-Type: application/problem+json`):
+
+```json
+{
+  "type": "about:blank",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "user not found",
+  "code": "not_found",
+  "errors": [
+    {"type": "ResourceInfo", "resource_type": "User", "resource_name": "123", "owner": "", "description": "not found"}
+  ]
+}
+```
+
+### Localization with custom locale extraction
+
+```go
+mux.Handle("GET /hello", herr.Handler(hello,
+    herr.WithLocaleFunc(func(h http.Header) string {
+        return h.Get("X-Locale")
+    }),
+))
+```
+
+### Conversion functions
+
+```go
+p := herr.ToProblemDetail(err)       // errx → *ProblemDetail
+ex := herr.FromProblemDetail(p)      // *ProblemDetail → *errx.Error
+herr.WriteError(w, err)              // write RFC 9457 JSON response
 ```
 
 ## License
