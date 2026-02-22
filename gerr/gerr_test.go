@@ -237,6 +237,109 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
+func TestToStatus_WithErrxDetails(t *testing.T) {
+	t.Parallel()
+
+	t.Run("BadRequestDetail", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("bad request").
+			WithCode(errx.InvalidArgument).
+			WithDetails(errx.FieldViolation("email", "invalid"))
+		st := gerr.ToStatus(err)
+		details := st.Details()
+		if len(details) != 1 {
+			t.Fatalf("details length = %d, want 1", len(details))
+		}
+		br, ok := details[0].(*errdetails.BadRequest)
+		if !ok {
+			t.Fatalf("detail type = %T, want *errdetails.BadRequest", details[0])
+		}
+		if len(br.GetFieldViolations()) != 1 || br.GetFieldViolations()[0].GetField() != "email" {
+			t.Errorf("unexpected field violation: %v", br.GetFieldViolations())
+		}
+	})
+
+	t.Run("PreconditionFailureDetail", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("precondition failed").
+			WithCode(errx.FailedPrecondition).
+			WithDetails(errx.PreconditionFailure(errx.PreconditionViolation{
+				Type: "TOS", Subject: "user", Description: "not accepted",
+			}))
+		st := gerr.ToStatus(err)
+		details := st.Details()
+		if len(details) != 1 {
+			t.Fatalf("details length = %d, want 1", len(details))
+		}
+		pf, ok := details[0].(*errdetails.PreconditionFailure)
+		if !ok {
+			t.Fatalf("detail type = %T, want *errdetails.PreconditionFailure", details[0])
+		}
+		if pf.GetViolations()[0].GetType() != "TOS" {
+			t.Errorf("type = %q, want %q", pf.GetViolations()[0].GetType(), "TOS")
+		}
+	})
+
+	t.Run("ResourceInfoDetail", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("not found").
+			WithCode(errx.NotFound).
+			WithDetails(errx.ResourceInfo("User", "123", "", "not found"))
+		st := gerr.ToStatus(err)
+		details := st.Details()
+		if len(details) != 1 {
+			t.Fatalf("details length = %d, want 1", len(details))
+		}
+		ri, ok := details[0].(*errdetails.ResourceInfo)
+		if !ok {
+			t.Fatalf("detail type = %T, want *errdetails.ResourceInfo", details[0])
+		}
+		if ri.GetResourceType() != "User" || ri.GetResourceName() != "123" {
+			t.Errorf("got %v", ri)
+		}
+	})
+
+	t.Run("ErrorInfoDetail", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("quota exceeded").
+			WithCode(errx.ResourceExhausted).
+			WithDetails(errx.ErrorInfo("QUOTA_EXCEEDED", "example.com", map[string]string{"limit": "100"}))
+		st := gerr.ToStatus(err)
+		details := st.Details()
+		if len(details) != 1 {
+			t.Fatalf("details length = %d, want 1", len(details))
+		}
+		ei, ok := details[0].(*errdetails.ErrorInfo)
+		if !ok {
+			t.Fatalf("detail type = %T, want *errdetails.ErrorInfo", details[0])
+		}
+		if ei.GetReason() != "QUOTA_EXCEEDED" || ei.GetMetadata()["limit"] != "100" {
+			t.Errorf("got %v", ei)
+		}
+	})
+
+	t.Run("mixed errx and proto details", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("bad request").
+			WithCode(errx.InvalidArgument).
+			WithDetails(
+				errx.FieldViolation("name", "required"),
+				gerr.LocalizedMessage("en", "Name is required"),
+			)
+		st := gerr.ToStatus(err)
+		details := st.Details()
+		if len(details) != 2 {
+			t.Fatalf("details length = %d, want 2", len(details))
+		}
+		if _, ok := details[0].(*errdetails.BadRequest); !ok {
+			t.Errorf("detail[0] type = %T, want *errdetails.BadRequest", details[0])
+		}
+		if _, ok := details[1].(*errdetails.LocalizedMessage); !ok {
+			t.Errorf("detail[1] type = %T, want *errdetails.LocalizedMessage", details[1])
+		}
+	})
+}
+
 func TestRoundTrip_WithDetails(t *testing.T) {
 	t.Parallel()
 
