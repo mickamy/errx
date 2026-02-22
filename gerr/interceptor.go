@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"golang.org/x/text/language"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
@@ -48,7 +49,21 @@ func defaultLocaleFunc(ctx context.Context) string {
 	if len(vals) == 0 {
 		return ""
 	}
-	return vals[0]
+	return parseAcceptLanguage(vals[0])
+}
+
+func parseAcceptLanguage(s string) string {
+	tags, qs, err := language.ParseAcceptLanguage(s)
+	if err != nil || len(tags) == 0 {
+		return ""
+	}
+	best := 0
+	for i := 1; i < len(tags); i++ {
+		if qs[i] > qs[best] {
+			best = i
+		}
+	}
+	return tags[best].String()
 }
 
 // UnaryServerInterceptor returns a gRPC unary server interceptor that

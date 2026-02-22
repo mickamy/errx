@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 
+	"golang.org/x/text/language"
+
 	"github.com/mickamy/errx"
 )
 
@@ -36,7 +38,21 @@ func newMiddlewareConfig(opts []MiddlewareOption) *middlewareConfig {
 }
 
 func defaultLocaleFunc(h http.Header) string {
-	return h.Get("Accept-Language")
+	return parseAcceptLanguage(h.Get("Accept-Language"))
+}
+
+func parseAcceptLanguage(s string) string {
+	tags, qs, err := language.ParseAcceptLanguage(s)
+	if err != nil || len(tags) == 0 {
+		return ""
+	}
+	best := 0
+	for i := 1; i < len(tags); i++ {
+		if qs[i] > qs[best] {
+			best = i
+		}
+	}
+	return tags[best].String()
 }
 
 // HandlerFunc is an HTTP handler that returns an error.

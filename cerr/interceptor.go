@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
+	"golang.org/x/text/language"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 
 	"github.com/mickamy/errx"
@@ -40,7 +41,21 @@ func newInterceptorConfig(opts []InterceptorOption) *interceptorConfig {
 }
 
 func defaultLocaleFunc(h http.Header) string {
-	return h.Get("Accept-Language")
+	return parseAcceptLanguage(h.Get("Accept-Language"))
+}
+
+func parseAcceptLanguage(s string) string {
+	tags, qs, err := language.ParseAcceptLanguage(s)
+	if err != nil || len(tags) == 0 {
+		return ""
+	}
+	best := 0
+	for i := 1; i < len(tags); i++ {
+		if qs[i] > qs[best] {
+			best = i
+		}
+	}
+	return tags[best].String()
 }
 
 // NewInterceptor returns a Connect interceptor that converts returned errors
