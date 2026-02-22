@@ -88,9 +88,14 @@ func ToProblemDetail(err error, opts ...ProblemDetailOption) *ProblemDetail {
 		code = string(errx.Unknown)
 	}
 
+	title := http.StatusText(status)
+	if title == "" {
+		title = code
+	}
+
 	p := &ProblemDetail{
 		Type:   "about:blank",
-		Title:  http.StatusText(status),
+		Title:  title,
 		Status: status,
 		Detail: err.Error(),
 		Code:   code,

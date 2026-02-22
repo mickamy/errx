@@ -132,6 +132,18 @@ func TestToProblemDetail(t *testing.T) {
 		}
 	})
 
+	t.Run("non-standard status code falls back to code string for title", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("client closed").WithCode(errx.Canceled)
+		p := herr.ToProblemDetail(err)
+		if p.Status != 499 {
+			t.Errorf("Status = %d, want 499", p.Status)
+		}
+		if p.Title != "canceled" {
+			t.Errorf("Title = %q, want %q", p.Title, "canceled")
+		}
+	})
+
 	t.Run("plain error", func(t *testing.T) {
 		t.Parallel()
 		err := errors.New("something went wrong")
