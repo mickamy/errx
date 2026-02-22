@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"golang.org/x/text/language"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
@@ -14,17 +15,27 @@ import (
 type InterceptorOption func(*interceptorConfig)
 
 type interceptorConfig struct {
-	localeFunc func(context.Context) string
+	localeFunc    func(context.Context) string
+	defaultLocale language.Tag
 }
 
 // WithLocaleFunc sets a custom function to extract locale from context.
-// The default extracts the first value of the "accept-language" gRPC metadata key.
+// The default parses the "accept-language" gRPC metadata value and returns
+// the highest-priority language tag as a BCP 47 string.
 func WithLocaleFunc(f func(context.Context) string) InterceptorOption {
 	return func(cfg *interceptorConfig) {
 		if f == nil {
 			return
 		}
 		cfg.localeFunc = f
+	}
+}
+
+// WithDefaultLocale sets a fallback locale used when the locale function
+// returns an empty string (e.g. no accept-language metadata).
+func WithDefaultLocale(tag language.Tag) InterceptorOption {
+	return func(cfg *interceptorConfig) {
+		cfg.defaultLocale = tag
 	}
 }
 
@@ -48,7 +59,7 @@ func defaultLocaleFunc(ctx context.Context) string {
 	if len(vals) == 0 {
 		return ""
 	}
-	return vals[0]
+	return errx.ParseAcceptLanguage(vals[0])
 }
 
 // UnaryServerInterceptor returns a gRPC unary server interceptor that
@@ -94,19 +105,24 @@ func StreamServerInterceptor(opts ...InterceptorOption) grpc.StreamServerInterce
 // toStatusError converts an error to a gRPC status error, automatically
 // appending a LocalizedMessage detail if the error implements errx.Localizable.
 func (cfg *interceptorConfig) toStatusError(ctx context.Context, err error) error {
-	err = appendLocalizedDetail(ctx, err, cfg.localeFunc)
+	err = appendLocalizedDetail(ctx, err, cfg.localeFunc, cfg.defaultLocale)
 	return ToStatus(err).Err() //nolint:wrapcheck // intentionally returns gRPC status error
 }
 
 // appendLocalizedDetail checks if the error (or any error in its chain)
 // implements errx.Localizable. If so and a locale is available, it wraps
 // the error with a LocalizedMessage detail.
-func appendLocalizedDetail(ctx context.Context, err error, localeFunc func(context.Context) string) error {
+func appendLocalizedDetail(
+	ctx context.Context, err error, localeFunc func(context.Context) string, defaultLocale language.Tag,
+) error {
 	var l errx.Localizable
 	if !errors.As(err, &l) {
 		return err
 	}
 	locale := localeFunc(ctx)
+	if locale == "" && defaultLocale != language.Und {
+		locale = defaultLocale.String()
+	}
 	if locale == "" {
 		return err
 	}

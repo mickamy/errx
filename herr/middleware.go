@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 
+	"golang.org/x/text/language"
+
 	"github.com/mickamy/errx"
 )
 
@@ -11,17 +13,27 @@ import (
 type MiddlewareOption func(*middlewareConfig)
 
 type middlewareConfig struct {
-	localeFunc func(http.Header) string
+	localeFunc    func(http.Header) string
+	defaultLocale language.Tag
 }
 
 // WithLocaleFunc sets a custom function to extract locale from request headers.
-// The default extracts the "Accept-Language" header value.
+// The default parses the "Accept-Language" header and returns the highest-priority
+// language tag as a BCP 47 string.
 func WithLocaleFunc(f func(http.Header) string) MiddlewareOption {
 	return func(cfg *middlewareConfig) {
 		if f == nil {
 			return
 		}
 		cfg.localeFunc = f
+	}
+}
+
+// WithDefaultLocale sets a fallback locale used when the locale function
+// returns an empty string (e.g. no Accept-Language header).
+func WithDefaultLocale(tag language.Tag) MiddlewareOption {
+	return func(cfg *middlewareConfig) {
+		cfg.defaultLocale = tag
 	}
 }
 
@@ -36,7 +48,7 @@ func newMiddlewareConfig(opts []MiddlewareOption) *middlewareConfig {
 }
 
 func defaultLocaleFunc(h http.Header) string {
-	return h.Get("Accept-Language")
+	return errx.ParseAcceptLanguage(h.Get("Accept-Language"))
 }
 
 // HandlerFunc is an HTTP handler that returns an error.
@@ -62,6 +74,9 @@ func (cfg *middlewareConfig) writeErrorWithLocale(w http.ResponseWriter, header 
 	var l errx.Localizable
 	if errors.As(err, &l) {
 		locale := cfg.localeFunc(header)
+		if locale == "" && cfg.defaultLocale != language.Und {
+			locale = cfg.defaultLocale.String()
+		}
 		if locale != "" {
 			if msg := l.Localize(locale); msg != "" {
 				p.LocalizedMessage = &LocalizedMsg{Locale: locale, Message: msg}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
+	"golang.org/x/text/language"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 
 	"github.com/mickamy/errx"
@@ -15,17 +16,27 @@ import (
 type InterceptorOption func(*interceptorConfig)
 
 type interceptorConfig struct {
-	localeFunc func(http.Header) string
+	localeFunc    func(http.Header) string
+	defaultLocale language.Tag
 }
 
 // WithLocaleFunc sets a custom function to extract locale from request headers.
-// The default extracts the "Accept-Language" header value.
+// The default parses the "Accept-Language" header and returns the highest-priority
+// language tag as a BCP 47 string.
 func WithLocaleFunc(f func(http.Header) string) InterceptorOption {
 	return func(cfg *interceptorConfig) {
 		if f == nil {
 			return
 		}
 		cfg.localeFunc = f
+	}
+}
+
+// WithDefaultLocale sets a fallback locale used when the locale function
+// returns an empty string (e.g. no Accept-Language header).
+func WithDefaultLocale(tag language.Tag) InterceptorOption {
+	return func(cfg *interceptorConfig) {
+		cfg.defaultLocale = tag
 	}
 }
 
@@ -40,7 +51,7 @@ func newInterceptorConfig(opts []InterceptorOption) *interceptorConfig {
 }
 
 func defaultLocaleFunc(h http.Header) string {
-	return h.Get("Accept-Language")
+	return errx.ParseAcceptLanguage(h.Get("Accept-Language"))
 }
 
 // NewInterceptor returns a Connect interceptor that converts returned errors
@@ -83,16 +94,21 @@ func (i *interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 }
 
 func (cfg *interceptorConfig) toConnectError(header http.Header, err error) error {
-	err = appendLocalizedDetail(header, err, cfg.localeFunc)
+	err = appendLocalizedDetail(header, err, cfg.localeFunc, cfg.defaultLocale)
 	return ToConnectError(err)
 }
 
-func appendLocalizedDetail(header http.Header, err error, localeFunc func(http.Header) string) error {
+func appendLocalizedDetail(
+	header http.Header, err error, localeFunc func(http.Header) string, defaultLocale language.Tag,
+) error {
 	var l errx.Localizable
 	if !errors.As(err, &l) {
 		return err
 	}
 	locale := localeFunc(header)
+	if locale == "" && defaultLocale != language.Und {
+		locale = defaultLocale.String()
+	}
 	if locale == "" {
 		return err
 	}
