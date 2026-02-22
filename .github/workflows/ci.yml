@@ -21,6 +21,11 @@ jobs:
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
+        with:
+          install-only: 'true'
+
+      - name: Run golangci-lint
+        run: make lint
 
   test:
     runs-on: ubuntu-latest
