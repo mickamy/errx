@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	connectrpc.com/connect v1.19.1
-	github.com/mickamy/errx v0.0.0
+	github.com/mickamy/errx v0.0.1
 	github.com/mickamy/errx/cerr v0.0.0
 	github.com/mickamy/errx/gerr v0.0.0
 	github.com/mickamy/errx/herr v0.0.0
