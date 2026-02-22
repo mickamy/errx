@@ -51,11 +51,11 @@ func (s *server) SayHello(_ context.Context, req *pb.HelloRequest) (*pb.HelloRep
 		// WithDetails: attach a FieldViolation detail.
 		return nil, errx.New("name is required").
 			WithCode(errx.InvalidArgument).
-			WithDetails(gerr.FieldViolation("name", "must not be empty"))
+			WithDetails(errx.FieldViolation("name", "must not be empty"))
 	case "unknown":
 		// WithDetails: attach a ResourceInfo detail.
 		return nil, errx.Wrap(ErrUserNotFound).
-			WithDetails(gerr.ResourceInfo("User", name, "", "user not found"))
+			WithDetails(errx.ResourceInfo("User", name, "", "user not found"))
 	case "admin":
 		return nil, errx.New("admin access denied", "name", name).
 			WithCode(errx.PermissionDenied)
@@ -68,7 +68,7 @@ func (s *server) SayHello(_ context.Context, req *pb.HelloRequest) (*pb.HelloRep
 				"ja": "名前は必須です", //nolint:gosmopolitan // example i18n
 			},
 		}).WithCode(errx.InvalidArgument).
-			WithDetails(gerr.FieldViolation("name", "must not be empty"))
+			WithDetails(errx.FieldViolation("name", "must not be empty"))
 	}
 
 	return &pb.HelloReply{Message: "Hello " + name}, nil

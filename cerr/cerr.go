@@ -2,6 +2,7 @@ package cerr
 
 import (
 	"connectrpc.com/connect"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/mickamy/errx"
@@ -37,8 +38,8 @@ func ToConnectError(err error) *connect.Error {
 	ce := connect.NewError(ToConnectCode(c), err)
 
 	for _, d := range errx.DetailsOf(err) {
-		pm, ok := d.(proto.Message)
-		if !ok {
+		pm := toProtoDetail(d)
+		if pm == nil {
 			continue
 		}
 		detail, detailErr := connect.NewErrorDetail(pm)
@@ -89,6 +90,51 @@ var errxToConnect = map[errx.Code]connect.Code{
 	errx.Unavailable:        connect.CodeUnavailable,
 	errx.DataLoss:           connect.CodeDataLoss,
 	errx.Unauthenticated:    connect.CodeUnauthenticated,
+}
+
+// toProtoDetail converts an errx detail type to a proto.Message.
+// If the detail is already a proto.Message, it is returned as-is.
+// Returns nil for unrecognized types.
+func toProtoDetail(d any) proto.Message {
+	switch v := d.(type) {
+	case *errx.BadRequestDetail:
+		violations := make([]*errdetails.BadRequest_FieldViolation, len(v.Violations))
+		for i, fv := range v.Violations {
+			violations[i] = &errdetails.BadRequest_FieldViolation{
+				Field:       fv.Field,
+				Description: fv.Description,
+			}
+		}
+		return &errdetails.BadRequest{FieldViolations: violations}
+	case *errx.PreconditionFailureDetail:
+		violations := make([]*errdetails.PreconditionFailure_Violation, len(v.Violations))
+		for i, pv := range v.Violations {
+			violations[i] = &errdetails.PreconditionFailure_Violation{
+				Type:        pv.Type,
+				Subject:     pv.Subject,
+				Description: pv.Description,
+			}
+		}
+		return &errdetails.PreconditionFailure{Violations: violations}
+	case *errx.ResourceInfoDetail:
+		return &errdetails.ResourceInfo{
+			ResourceType: v.ResourceType,
+			ResourceName: v.ResourceName,
+			Owner:        v.Owner,
+			Description:  v.Description,
+		}
+	case *errx.ErrorInfoDetail:
+		return &errdetails.ErrorInfo{
+			Reason:   v.Reason,
+			Domain:   v.Domain,
+			Metadata: v.Metadata,
+		}
+	default:
+		if pm, ok := d.(proto.Message); ok {
+			return pm
+		}
+		return nil
+	}
 }
 
 var connectToErrx = map[connect.Code]errx.Code{

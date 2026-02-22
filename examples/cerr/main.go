@@ -43,11 +43,7 @@ func main() {
 	logger.Info("=== 1. InvalidArgument + FieldViolation ===")
 	err1 := errx.New("name is required").
 		WithCode(errx.InvalidArgument).
-		WithDetails(&errdetails.BadRequest{
-			FieldViolations: []*errdetails.BadRequest_FieldViolation{
-				{Field: "name", Description: "must not be empty"},
-			},
-		})
+		WithDetails(errx.FieldViolation("name", "must not be empty"))
 	ce1 := cerr.ToConnectError(err1)
 	logConnectError(logger, ce1)
 
@@ -69,10 +65,7 @@ func main() {
 	logger.Info("=== 3. Round-trip ===")
 	original := errx.New("not found").
 		WithCode(errx.NotFound).
-		WithDetails(&errdetails.ResourceInfo{
-			ResourceType: "User",
-			ResourceName: "alice",
-		})
+		WithDetails(errx.ResourceInfo("User", "alice", "", "not found"))
 	ce3 := cerr.ToConnectError(original)
 	recovered := cerr.FromConnectError(ce3)
 	logger.Info("recovered",

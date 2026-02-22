@@ -174,6 +174,114 @@ func TestFromConnectError(t *testing.T) {
 	})
 }
 
+func TestToConnectError_WithErrxDetails(t *testing.T) {
+	t.Parallel()
+
+	t.Run("BadRequestDetail", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("bad request").
+			WithCode(errx.InvalidArgument).
+			WithDetails(errx.FieldViolation("email", "invalid"))
+		ce := cerr.ToConnectError(err)
+		if len(ce.Details()) != 1 {
+			t.Fatalf("details length = %d, want 1", len(ce.Details()))
+		}
+		v, vErr := ce.Details()[0].Value()
+		if vErr != nil {
+			t.Fatal(vErr)
+		}
+		br, ok := v.(*errdetails.BadRequest)
+		if !ok {
+			t.Fatalf("detail type = %T, want *errdetails.BadRequest", v)
+		}
+		if len(br.GetFieldViolations()) != 1 || br.GetFieldViolations()[0].GetField() != "email" {
+			t.Errorf("unexpected field violation: %v", br.GetFieldViolations())
+		}
+	})
+
+	t.Run("PreconditionFailureDetail", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("precondition failed").
+			WithCode(errx.FailedPrecondition).
+			WithDetails(errx.PreconditionFailure(errx.PreconditionViolation{
+				Type: "TOS", Subject: "user", Description: "not accepted",
+			}))
+		ce := cerr.ToConnectError(err)
+		if len(ce.Details()) != 1 {
+			t.Fatalf("details length = %d, want 1", len(ce.Details()))
+		}
+		v, vErr := ce.Details()[0].Value()
+		if vErr != nil {
+			t.Fatal(vErr)
+		}
+		pf, ok := v.(*errdetails.PreconditionFailure)
+		if !ok {
+			t.Fatalf("detail type = %T, want *errdetails.PreconditionFailure", v)
+		}
+		if pf.GetViolations()[0].GetType() != "TOS" {
+			t.Errorf("type = %q, want %q", pf.GetViolations()[0].GetType(), "TOS")
+		}
+	})
+
+	t.Run("ResourceInfoDetail", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("not found").
+			WithCode(errx.NotFound).
+			WithDetails(errx.ResourceInfo("User", "123", "", "not found"))
+		ce := cerr.ToConnectError(err)
+		if len(ce.Details()) != 1 {
+			t.Fatalf("details length = %d, want 1", len(ce.Details()))
+		}
+		v, vErr := ce.Details()[0].Value()
+		if vErr != nil {
+			t.Fatal(vErr)
+		}
+		ri, ok := v.(*errdetails.ResourceInfo)
+		if !ok {
+			t.Fatalf("detail type = %T, want *errdetails.ResourceInfo", v)
+		}
+		if ri.GetResourceType() != "User" || ri.GetResourceName() != "123" {
+			t.Errorf("got %v", ri)
+		}
+	})
+
+	t.Run("ErrorInfoDetail", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("quota exceeded").
+			WithCode(errx.ResourceExhausted).
+			WithDetails(errx.ErrorInfo("QUOTA_EXCEEDED", "example.com", map[string]string{"limit": "100"}))
+		ce := cerr.ToConnectError(err)
+		if len(ce.Details()) != 1 {
+			t.Fatalf("details length = %d, want 1", len(ce.Details()))
+		}
+		v, vErr := ce.Details()[0].Value()
+		if vErr != nil {
+			t.Fatal(vErr)
+		}
+		ei, ok := v.(*errdetails.ErrorInfo)
+		if !ok {
+			t.Fatalf("detail type = %T, want *errdetails.ErrorInfo", v)
+		}
+		if ei.GetReason() != "QUOTA_EXCEEDED" || ei.GetMetadata()["limit"] != "100" {
+			t.Errorf("got %v", ei)
+		}
+	})
+
+	t.Run("mixed errx and proto details", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("bad request").
+			WithCode(errx.InvalidArgument).
+			WithDetails(
+				errx.FieldViolation("name", "required"),
+				&errdetails.LocalizedMessage{Locale: "en", Message: "Name is required"},
+			)
+		ce := cerr.ToConnectError(err)
+		if len(ce.Details()) != 2 {
+			t.Fatalf("details length = %d, want 2", len(ce.Details()))
+		}
+	})
+}
+
 func TestRoundTrip(t *testing.T) {
 	t.Parallel()
 
