@@ -13,25 +13,17 @@ import (
 )
 
 func TestRegisterCode(t *testing.T) {
-	t.Parallel()
-
+	// Not parallel: RegisterCode writes to package-level maps.
 	custom := errx.Code("payment_required")
 	customGRPC := codes.Code(100)
 	gerr.RegisterCode(custom, customGRPC)
 
-	t.Run("forward lookup", func(t *testing.T) {
-		t.Parallel()
-		if got := gerr.ToGRPCCode(custom); got != customGRPC {
-			t.Errorf("ToGRPCCode(%q) = %v, want %v", custom, got, customGRPC)
-		}
-	})
-
-	t.Run("reverse lookup", func(t *testing.T) {
-		t.Parallel()
-		if got := gerr.ToErrxCode(customGRPC); got != custom {
-			t.Errorf("ToErrxCode(%v) = %q, want %q", customGRPC, got, custom)
-		}
-	})
+	if got := gerr.ToGRPCCode(custom); got != customGRPC {
+		t.Errorf("ToGRPCCode(%q) = %v, want %v", custom, got, customGRPC)
+	}
+	if got := gerr.ToErrxCode(customGRPC); got != custom {
+		t.Errorf("ToErrxCode(%v) = %q, want %q", customGRPC, got, custom)
+	}
 }
 
 func TestToGRPCCode(t *testing.T) {

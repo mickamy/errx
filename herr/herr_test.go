@@ -12,24 +12,16 @@ import (
 )
 
 func TestRegisterCode(t *testing.T) {
-	t.Parallel()
-
+	// Not parallel: RegisterCode writes to package-level maps.
 	custom := errx.Code("payment_required")
 	herr.RegisterCode(custom, http.StatusPaymentRequired)
 
-	t.Run("forward lookup", func(t *testing.T) {
-		t.Parallel()
-		if got := herr.ToHTTPStatus(custom); got != http.StatusPaymentRequired {
-			t.Errorf("ToHTTPStatus(%q) = %d, want %d", custom, got, http.StatusPaymentRequired)
-		}
-	})
-
-	t.Run("reverse lookup", func(t *testing.T) {
-		t.Parallel()
-		if got := herr.ToErrxCode(http.StatusPaymentRequired); got != custom {
-			t.Errorf("ToErrxCode(%d) = %q, want %q", http.StatusPaymentRequired, got, custom)
-		}
-	})
+	if got := herr.ToHTTPStatus(custom); got != http.StatusPaymentRequired {
+		t.Errorf("ToHTTPStatus(%q) = %d, want %d", custom, got, http.StatusPaymentRequired)
+	}
+	if got := herr.ToErrxCode(http.StatusPaymentRequired); got != custom {
+		t.Errorf("ToErrxCode(%d) = %q, want %q", http.StatusPaymentRequired, got, custom)
+	}
 }
 
 func TestToHTTPStatus(t *testing.T) {

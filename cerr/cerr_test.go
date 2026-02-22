@@ -12,25 +12,17 @@ import (
 )
 
 func TestRegisterCode(t *testing.T) {
-	t.Parallel()
-
+	// Not parallel: RegisterCode writes to package-level maps.
 	custom := errx.Code("payment_required")
 	customConnect := connect.Code(100)
 	cerr.RegisterCode(custom, customConnect)
 
-	t.Run("forward lookup", func(t *testing.T) {
-		t.Parallel()
-		if got := cerr.ToConnectCode(custom); got != customConnect {
-			t.Errorf("ToConnectCode(%q) = %v, want %v", custom, got, customConnect)
-		}
-	})
-
-	t.Run("reverse lookup", func(t *testing.T) {
-		t.Parallel()
-		if got := cerr.ToErrxCode(customConnect); got != custom {
-			t.Errorf("ToErrxCode(%v) = %q, want %q", customConnect, got, custom)
-		}
-	})
+	if got := cerr.ToConnectCode(custom); got != customConnect {
+		t.Errorf("ToConnectCode(%q) = %v, want %v", custom, got, customConnect)
+	}
+	if got := cerr.ToErrxCode(customConnect); got != custom {
+		t.Errorf("ToErrxCode(%v) = %q, want %q", customConnect, got, custom)
+	}
 }
 
 func TestToConnectCode(t *testing.T) {
