@@ -25,10 +25,10 @@ go get github.com/mickamy/errx/cerr
 // Create an error with a code and structured fields
 err := errx.New("user not found", "user_id", 42).WithCode(errx.NotFound)
 
-// Attach gRPC error details
+// Attach error details — no transport dependency in your domain/use-case layer
 err = errx.New("name is required").
     WithCode(errx.InvalidArgument).
-    WithDetails(gerr.FieldViolation("name", "must not be empty"))
+    WithDetails(errx.FieldViolation("name", "must not be empty"))
 
 // The gRPC/Connect interceptor converts errx errors automatically —
 // handlers just return errors, no manual status construction needed.
@@ -71,18 +71,28 @@ errx.CodeOf(err)            // "not_found"
 
 ### Error details
 
-Attach arbitrary detail objects (typically `proto.Message`) to errors. The gRPC/Connect interceptors pick them up automatically:
+Attach transport-agnostic detail types to errors. The gRPC/Connect interceptors automatically convert them to proto types:
 
 ```go
 err := errx.New("bad request").
     WithCode(errx.InvalidArgument).
     WithDetails(
-        gerr.FieldViolation("email", "invalid format"),
-        gerr.FieldViolation("name", "must not be empty"),
+        errx.FieldViolation("email", "invalid format"),
+        errx.FieldViolation("name", "must not be empty"),
     )
 
 // Collect details from the error chain
 details := errx.DetailsOf(err)
+```
+
+Available detail types (all in `errx` package):
+
+```go
+errx.FieldViolation("email", "invalid format")
+errx.BadRequest(errx.BadRequestFieldViolation{Field: "email", Description: "invalid"}, ...)
+errx.ResourceInfo("User", "123", "", "not found")
+errx.ErrorInfo("QUOTA_EXCEEDED", "example.com", map[string]string{"limit": "100"})
+errx.PreconditionFailure(errx.PreconditionViolation{Type: "TOS", Subject: "user", Description: "not accepted"})
 ```
 
 ### Localization
@@ -126,7 +136,7 @@ frames := stack.Frames() // []Frame{Function, File, Line}
 
 ## gerr (gRPC)
 
-gRPC integration with code mapping, error detail helpers, and server interceptors.
+gRPC integration with code mapping, server interceptors, and infrastructure-level detail helpers.
 
 ### Interceptors
 
@@ -143,20 +153,16 @@ Handlers just return `errx` errors — the interceptor converts them to gRPC sta
 func (s *server) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {
     // Just return an errx error. The interceptor handles the rest.
     return nil, errx.Wrap(ErrUserNotFound).
-        WithDetails(gerr.ResourceInfo("User", req.GetId(), "", "not found"))
+        WithDetails(errx.ResourceInfo("User", req.GetId(), "", "not found"))
 }
 ```
 
-### Error detail helpers
+### Infrastructure detail helpers
 
-Constructors for all [google.rpc.error_details](https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto) types:
+Helpers for detail types that are typically set at the infrastructure layer:
 
 ```go
-gerr.FieldViolation("email", "invalid format")
-gerr.BadRequest(gerr.NewFieldViolation("email", "invalid"), gerr.NewFieldViolation("name", "required"))
-gerr.ResourceInfo("User", "123", "", "not found")
-gerr.ErrorInfo("QUOTA_EXCEEDED", "example.com", map[string]string{"limit": "100"})
-gerr.PreconditionFailure(gerr.NewPreconditionViolation("TOS", "user", "Terms not accepted"))
+gerr.QuotaFailure(gerr.NewQuotaViolation("project:abc", "RPM limit exceeded"))
 gerr.RetryInfo(5 * time.Second)
 gerr.DebugInfo([]string{"main.go:42"}, "nil pointer")
 gerr.LocalizedMessage("ja", "名前は必須です")
