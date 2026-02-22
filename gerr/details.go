@@ -1,4 +1,4 @@
-package grpcerr
+package gerr
 
 import (
 	"time"

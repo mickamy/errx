@@ -1,4 +1,4 @@
-module github.com/mickamy/errx/grpcerr
+module github.com/mickamy/errx/gerr
 
 go 1.25.0
 

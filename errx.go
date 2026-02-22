@@ -133,7 +133,7 @@ func DetailsOf(err error) []any {
 }
 
 // Localizable is implemented by errors that can provide localized messages.
-// This interface lives in errx (not grpcerr) so that non-gRPC transports
+// This interface lives in errx (not gerr) so that non-gRPC transports
 // (e.g. HTTP) can also leverage localized error messages.
 type Localizable interface {
 	Localize(locale string) string

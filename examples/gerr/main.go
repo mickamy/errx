@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/mickamy/errx"
-	"github.com/mickamy/errx/grpcerr"
+	"github.com/mickamy/errx/gerr"
 )
 
 var ErrUserNotFound = errx.NewSentinel("user not found", errx.NotFound)
@@ -51,11 +51,11 @@ func (s *server) SayHello(_ context.Context, req *pb.HelloRequest) (*pb.HelloRep
 		// WithDetails: attach a FieldViolation detail.
 		return nil, errx.New("name is required").
 			WithCode(errx.InvalidArgument).
-			WithDetails(grpcerr.FieldViolation("name", "must not be empty"))
+			WithDetails(gerr.FieldViolation("name", "must not be empty"))
 	case "unknown":
 		// WithDetails: attach a ResourceInfo detail.
 		return nil, errx.Wrap(ErrUserNotFound).
-			WithDetails(grpcerr.ResourceInfo("User", name, "", "user not found"))
+			WithDetails(gerr.ResourceInfo("User", name, "", "user not found"))
 	case "admin":
 		return nil, errx.New("admin access denied", "name", name).
 			WithCode(errx.PermissionDenied)
@@ -68,7 +68,7 @@ func (s *server) SayHello(_ context.Context, req *pb.HelloRequest) (*pb.HelloRep
 				"ja": "名前は必須です", //nolint:gosmopolitan // example i18n
 			},
 		}).WithCode(errx.InvalidArgument).
-			WithDetails(grpcerr.FieldViolation("name", "must not be empty"))
+			WithDetails(gerr.FieldViolation("name", "must not be empty"))
 	}
 
 	return &pb.HelloReply{Message: "Hello " + name}, nil
@@ -98,7 +98,7 @@ func run() error {
 		return fmt.Errorf("listen: %w", err)
 	}
 	srv := grpc.NewServer(
-		grpc.UnaryInterceptor(grpcerr.UnaryServerInterceptor()),
+		grpc.UnaryInterceptor(gerr.UnaryServerInterceptor()),
 	)
 	pb.RegisterGreeterServer(srv, &server{})
 
@@ -156,7 +156,7 @@ func run() error {
 	logger.Info("=== 6. Round-trip (gRPC → errx with details) ===")
 	_, err = client.SayHello(ctx, &pb.HelloRequest{Name: ""})
 	st, _ := status.FromError(err)
-	recovered := grpcerr.FromStatus(st)
+	recovered := gerr.FromStatus(st)
 	logger.Error("recovered errx error",
 		"code", recovered.Code(),
 		"message", recovered.Error(),

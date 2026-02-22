@@ -1,4 +1,4 @@
-package grpcerr_test
+package gerr_test
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/mickamy/errx"
-	"github.com/mickamy/errx/grpcerr"
+	"github.com/mickamy/errx/gerr"
 )
 
 func TestToGRPCCode(t *testing.T) {
@@ -35,7 +35,7 @@ func TestToGRPCCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(string(tt.in), func(t *testing.T) {
 			t.Parallel()
-			if got := grpcerr.ToGRPCCode(tt.in); got != tt.want {
+			if got := gerr.ToGRPCCode(tt.in); got != tt.want {
 				t.Errorf("ToGRPCCode(%q) = %v, want %v", tt.in, got, tt.want)
 			}
 		})
@@ -58,7 +58,7 @@ func TestToErrxCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.in.String(), func(t *testing.T) {
 			t.Parallel()
-			if got := grpcerr.ToErrxCode(tt.in); got != tt.want {
+			if got := gerr.ToErrxCode(tt.in); got != tt.want {
 				t.Errorf("ToErrxCode(%v) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
@@ -70,7 +70,7 @@ func TestToStatus(t *testing.T) {
 
 	t.Run("nil error", func(t *testing.T) {
 		t.Parallel()
-		st := grpcerr.ToStatus(nil)
+		st := gerr.ToStatus(nil)
 		if st.Code() != codes.OK {
 			t.Errorf("ToStatus(nil) code = %v, want OK", st.Code())
 		}
@@ -79,7 +79,7 @@ func TestToStatus(t *testing.T) {
 	t.Run("errx error with code", func(t *testing.T) {
 		t.Parallel()
 		err := errx.New("not found").WithCode(errx.NotFound)
-		st := grpcerr.ToStatus(err)
+		st := gerr.ToStatus(err)
 		if st.Code() != codes.NotFound {
 			t.Errorf("code = %v, want NotFound", st.Code())
 		}
@@ -91,7 +91,7 @@ func TestToStatus(t *testing.T) {
 	t.Run("plain error", func(t *testing.T) {
 		t.Parallel()
 		err := errors.New("plain")
-		st := grpcerr.ToStatus(err)
+		st := gerr.ToStatus(err)
 		if st.Code() != codes.Unknown {
 			t.Errorf("code = %v, want Unknown", st.Code())
 		}
@@ -101,7 +101,7 @@ func TestToStatus(t *testing.T) {
 		t.Parallel()
 		inner := errx.New("db error").WithCode(errx.Internal)
 		outer := errx.Wrapf(inner, "query failed")
-		st := grpcerr.ToStatus(outer)
+		st := gerr.ToStatus(outer)
 		if st.Code() != codes.Internal {
 			t.Errorf("code = %v, want Internal", st.Code())
 		}
@@ -114,7 +114,7 @@ func TestFromStatus(t *testing.T) {
 	t.Run("OK returns nil", func(t *testing.T) {
 		t.Parallel()
 		st := status.New(codes.OK, "")
-		if grpcerr.FromStatus(st) != nil {
+		if gerr.FromStatus(st) != nil {
 			t.Error("FromStatus(OK) should return nil")
 		}
 	})
@@ -122,7 +122,7 @@ func TestFromStatus(t *testing.T) {
 	t.Run("error status", func(t *testing.T) {
 		t.Parallel()
 		st := status.New(codes.NotFound, "user not found")
-		err := grpcerr.FromStatus(st)
+		err := gerr.FromStatus(st)
 		if err == nil {
 			t.Fatal("FromStatus should return non-nil")
 		}
@@ -142,8 +142,8 @@ func TestToStatus_WithDetails(t *testing.T) {
 		t.Parallel()
 		err := errx.New("bad request").
 			WithCode(errx.InvalidArgument).
-			WithDetails(grpcerr.FieldViolation("email", "invalid"))
-		st := grpcerr.ToStatus(err)
+			WithDetails(gerr.FieldViolation("email", "invalid"))
+		st := gerr.ToStatus(err)
 		if st.Code() != codes.InvalidArgument {
 			t.Errorf("code = %v, want InvalidArgument", st.Code())
 		}
@@ -165,7 +165,7 @@ func TestToStatus_WithDetails(t *testing.T) {
 		err := errx.New("fail").
 			WithCode(errx.Internal).
 			WithDetails("not a proto message")
-		st := grpcerr.ToStatus(err)
+		st := gerr.ToStatus(err)
 		if len(st.Details()) != 0 {
 			t.Errorf("details length = %d, want 0", len(st.Details()))
 		}
@@ -175,10 +175,10 @@ func TestToStatus_WithDetails(t *testing.T) {
 		t.Parallel()
 		inner := errx.New("inner").
 			WithCode(errx.InvalidArgument).
-			WithDetails(grpcerr.FieldViolation("name", "required"))
+			WithDetails(gerr.FieldViolation("name", "required"))
 		outer := errx.Wrap(inner).
-			WithDetails(grpcerr.FieldViolation("email", "invalid"))
-		st := grpcerr.ToStatus(outer)
+			WithDetails(gerr.FieldViolation("email", "invalid"))
+		st := gerr.ToStatus(outer)
 		if len(st.Details()) != 2 {
 			t.Fatalf("details length = %d, want 2", len(st.Details()))
 		}
@@ -191,11 +191,11 @@ func TestFromStatus_WithDetails(t *testing.T) {
 	t.Run("details are restored", func(t *testing.T) {
 		t.Parallel()
 		st, err := status.New(codes.InvalidArgument, "bad request").
-			WithDetails(grpcerr.FieldViolation("email", "invalid"))
+			WithDetails(gerr.FieldViolation("email", "invalid"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		ex := grpcerr.FromStatus(st)
+		ex := gerr.FromStatus(st)
 		details := errx.DetailsOf(ex)
 		if len(details) != 1 {
 			t.Fatalf("details length = %d, want 1", len(details))
@@ -212,7 +212,7 @@ func TestFromStatus_WithDetails(t *testing.T) {
 	t.Run("no details", func(t *testing.T) {
 		t.Parallel()
 		st := status.New(codes.NotFound, "not found")
-		ex := grpcerr.FromStatus(st)
+		ex := gerr.FromStatus(st)
 		details := errx.DetailsOf(ex)
 		if len(details) != 0 {
 			t.Errorf("details length = %d, want 0", len(details))
@@ -226,8 +226,8 @@ func TestRoundTrip(t *testing.T) {
 	original := errx.New("permission denied", "resource", "doc-123").
 		WithCode(errx.PermissionDenied)
 
-	st := grpcerr.ToStatus(original)
-	recovered := grpcerr.FromStatus(st)
+	st := gerr.ToStatus(original)
+	recovered := gerr.FromStatus(st)
 
 	if recovered.Code() != errx.PermissionDenied {
 		t.Errorf("round-trip code = %q, want %q", recovered.Code(), errx.PermissionDenied)
@@ -243,12 +243,12 @@ func TestRoundTrip_WithDetails(t *testing.T) {
 	original := errx.New("bad request").
 		WithCode(errx.InvalidArgument).
 		WithDetails(
-			grpcerr.FieldViolation("email", "invalid"),
-			grpcerr.LocalizedMessage("en", "Email is invalid"),
+			gerr.FieldViolation("email", "invalid"),
+			gerr.LocalizedMessage("en", "Email is invalid"),
 		)
 
-	st := grpcerr.ToStatus(original)
-	recovered := grpcerr.FromStatus(st)
+	st := gerr.ToStatus(original)
+	recovered := gerr.FromStatus(st)
 
 	if recovered.Code() != errx.InvalidArgument {
 		t.Errorf("code = %q, want %q", recovered.Code(), errx.InvalidArgument)

@@ -38,7 +38,7 @@ func main() {
 	if err := getUser(999); err != nil {
 		logger.Error("failed to get user",
 			errx.SlogAttr(err),
-			"recovered", errors.Is(err, ErrNotFound),
+			slog.Bool("recovered", errors.Is(err, ErrNotFound)),
 		)
 	}
 
@@ -46,7 +46,7 @@ func main() {
 	if err := processPayment("user-1", 5000); err != nil {
 		logger.Error("payment failed",
 			errx.SlogAttr(err),
-			"code", errx.CodeOf(err),
+			slog.String("code", string(errx.CodeOf(err))),
 		)
 	}
 
@@ -57,7 +57,7 @@ func main() {
 			frames := stack.Frames()
 			logger.Error("deep failure",
 				errx.SlogAttr(err),
-				"top_frame", frames[0].Function,
+				slog.String("top_frame", frames[0].Function),
 			)
 		}
 	}
