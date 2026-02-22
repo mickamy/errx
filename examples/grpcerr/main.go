@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"os"
@@ -61,8 +62,11 @@ func (s *server) SayHello(_ context.Context, req *pb.HelloRequest) (*pb.HelloRep
 	case "validate":
 		// Localizable: the interceptor auto-appends LocalizedMessage.
 		return nil, errx.Wrap(&validationError{
-			field:    "name",
-			messages: map[string]string{"en": "Name is required", "ja": "名前は必須です"},
+			field: "name",
+			messages: map[string]string{
+				"en": "Name is required",
+				"ja": "名前は必須です", //nolint:gosmopolitan // example i18n
+			},
 		}).WithCode(errx.InvalidArgument).
 			WithDetails(grpcerr.FieldViolation("name", "must not be empty"))
 	}
@@ -71,6 +75,13 @@ func (s *server) SayHello(_ context.Context, req *pb.HelloRequest) (*pb.HelloRep
 }
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
@@ -81,10 +92,10 @@ func main() {
 	}))
 
 	// Start gRPC server with the errx interceptor.
-	lis, err := net.Listen("tcp", "localhost:0")
+	var lc net.ListenConfig
+	lis, err := lc.Listen(context.Background(), "tcp", "localhost:0")
 	if err != nil {
-		logger.Error("failed to listen", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("listen: %w", err)
 	}
 	srv := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcerr.UnaryServerInterceptor()),
@@ -104,8 +115,7 @@ func main() {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		logger.Error("failed to connect", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("connect: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
 
@@ -152,6 +162,8 @@ func main() {
 		"message", recovered.Error(),
 		"details_count", len(errx.DetailsOf(recovered)),
 	)
+
+	return nil
 }
 
 func logGRPCError(logger *slog.Logger, err error) {
