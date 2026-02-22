@@ -18,7 +18,8 @@ type middlewareConfig struct {
 }
 
 // WithLocaleFunc sets a custom function to extract locale from request headers.
-// The default extracts the "Accept-Language" header value.
+// The default parses the "Accept-Language" header and returns the highest-priority
+// language tag as a BCP 47 string.
 func WithLocaleFunc(f func(http.Header) string) MiddlewareOption {
 	return func(cfg *middlewareConfig) {
 		if f == nil {
@@ -47,21 +48,7 @@ func newMiddlewareConfig(opts []MiddlewareOption) *middlewareConfig {
 }
 
 func defaultLocaleFunc(h http.Header) string {
-	return parseAcceptLanguage(h.Get("Accept-Language"))
-}
-
-func parseAcceptLanguage(s string) string {
-	tags, qs, err := language.ParseAcceptLanguage(s)
-	if err != nil || len(tags) == 0 {
-		return ""
-	}
-	best := 0
-	for i := 1; i < len(tags); i++ {
-		if qs[i] > qs[best] {
-			best = i
-		}
-	}
-	return tags[best].String()
+	return errx.ParseAcceptLanguage(h.Get("Accept-Language"))
 }
 
 // HandlerFunc is an HTTP handler that returns an error.

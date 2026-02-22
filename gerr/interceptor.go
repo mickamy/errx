@@ -20,7 +20,8 @@ type interceptorConfig struct {
 }
 
 // WithLocaleFunc sets a custom function to extract locale from context.
-// The default extracts the first value of the "accept-language" gRPC metadata key.
+// The default parses the "accept-language" gRPC metadata value and returns
+// the highest-priority language tag as a BCP 47 string.
 func WithLocaleFunc(f func(context.Context) string) InterceptorOption {
 	return func(cfg *interceptorConfig) {
 		if f == nil {
@@ -58,21 +59,7 @@ func defaultLocaleFunc(ctx context.Context) string {
 	if len(vals) == 0 {
 		return ""
 	}
-	return parseAcceptLanguage(vals[0])
-}
-
-func parseAcceptLanguage(s string) string {
-	tags, qs, err := language.ParseAcceptLanguage(s)
-	if err != nil || len(tags) == 0 {
-		return ""
-	}
-	best := 0
-	for i := 1; i < len(tags); i++ {
-		if qs[i] > qs[best] {
-			best = i
-		}
-	}
-	return tags[best].String()
+	return errx.ParseAcceptLanguage(vals[0])
 }
 
 // UnaryServerInterceptor returns a gRPC unary server interceptor that
