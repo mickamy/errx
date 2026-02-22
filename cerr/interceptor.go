@@ -16,7 +16,8 @@ import (
 type InterceptorOption func(*interceptorConfig)
 
 type interceptorConfig struct {
-	localeFunc func(http.Header) string
+	localeFunc    func(http.Header) string
+	defaultLocale language.Tag
 }
 
 // WithLocaleFunc sets a custom function to extract locale from request headers.
@@ -27,6 +28,14 @@ func WithLocaleFunc(f func(http.Header) string) InterceptorOption {
 			return
 		}
 		cfg.localeFunc = f
+	}
+}
+
+// WithDefaultLocale sets a fallback locale used when the locale function
+// returns an empty string (e.g. no Accept-Language header).
+func WithDefaultLocale(tag language.Tag) InterceptorOption {
+	return func(cfg *interceptorConfig) {
+		cfg.defaultLocale = tag
 	}
 }
 
@@ -98,16 +107,21 @@ func (i *interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 }
 
 func (cfg *interceptorConfig) toConnectError(header http.Header, err error) error {
-	err = appendLocalizedDetail(header, err, cfg.localeFunc)
+	err = appendLocalizedDetail(header, err, cfg.localeFunc, cfg.defaultLocale)
 	return ToConnectError(err)
 }
 
-func appendLocalizedDetail(header http.Header, err error, localeFunc func(http.Header) string) error {
+func appendLocalizedDetail(
+	header http.Header, err error, localeFunc func(http.Header) string, defaultLocale language.Tag,
+) error {
 	var l errx.Localizable
 	if !errors.As(err, &l) {
 		return err
 	}
 	locale := localeFunc(header)
+	if locale == "" && defaultLocale != language.Und {
+		locale = defaultLocale.String()
+	}
 	if locale == "" {
 		return err
 	}

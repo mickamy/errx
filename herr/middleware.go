@@ -13,7 +13,8 @@ import (
 type MiddlewareOption func(*middlewareConfig)
 
 type middlewareConfig struct {
-	localeFunc func(http.Header) string
+	localeFunc    func(http.Header) string
+	defaultLocale language.Tag
 }
 
 // WithLocaleFunc sets a custom function to extract locale from request headers.
@@ -24,6 +25,14 @@ func WithLocaleFunc(f func(http.Header) string) MiddlewareOption {
 			return
 		}
 		cfg.localeFunc = f
+	}
+}
+
+// WithDefaultLocale sets a fallback locale used when the locale function
+// returns an empty string (e.g. no Accept-Language header).
+func WithDefaultLocale(tag language.Tag) MiddlewareOption {
+	return func(cfg *middlewareConfig) {
+		cfg.defaultLocale = tag
 	}
 }
 
@@ -78,6 +87,9 @@ func (cfg *middlewareConfig) writeErrorWithLocale(w http.ResponseWriter, header 
 	var l errx.Localizable
 	if errors.As(err, &l) {
 		locale := cfg.localeFunc(header)
+		if locale == "" && cfg.defaultLocale != language.Und {
+			locale = cfg.defaultLocale.String()
+		}
 		if locale != "" {
 			if msg := l.Localize(locale); msg != "" {
 				p.LocalizedMessage = &LocalizedMsg{Locale: locale, Message: msg}

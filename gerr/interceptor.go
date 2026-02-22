@@ -15,7 +15,8 @@ import (
 type InterceptorOption func(*interceptorConfig)
 
 type interceptorConfig struct {
-	localeFunc func(context.Context) string
+	localeFunc    func(context.Context) string
+	defaultLocale language.Tag
 }
 
 // WithLocaleFunc sets a custom function to extract locale from context.
@@ -26,6 +27,14 @@ func WithLocaleFunc(f func(context.Context) string) InterceptorOption {
 			return
 		}
 		cfg.localeFunc = f
+	}
+}
+
+// WithDefaultLocale sets a fallback locale used when the locale function
+// returns an empty string (e.g. no accept-language metadata).
+func WithDefaultLocale(tag language.Tag) InterceptorOption {
+	return func(cfg *interceptorConfig) {
+		cfg.defaultLocale = tag
 	}
 }
 
@@ -109,19 +118,24 @@ func StreamServerInterceptor(opts ...InterceptorOption) grpc.StreamServerInterce
 // toStatusError converts an error to a gRPC status error, automatically
 // appending a LocalizedMessage detail if the error implements errx.Localizable.
 func (cfg *interceptorConfig) toStatusError(ctx context.Context, err error) error {
-	err = appendLocalizedDetail(ctx, err, cfg.localeFunc)
+	err = appendLocalizedDetail(ctx, err, cfg.localeFunc, cfg.defaultLocale)
 	return ToStatus(err).Err() //nolint:wrapcheck // intentionally returns gRPC status error
 }
 
 // appendLocalizedDetail checks if the error (or any error in its chain)
 // implements errx.Localizable. If so and a locale is available, it wraps
 // the error with a LocalizedMessage detail.
-func appendLocalizedDetail(ctx context.Context, err error, localeFunc func(context.Context) string) error {
+func appendLocalizedDetail(
+	ctx context.Context, err error, localeFunc func(context.Context) string, defaultLocale language.Tag,
+) error {
 	var l errx.Localizable
 	if !errors.As(err, &l) {
 		return err
 	}
 	locale := localeFunc(ctx)
+	if locale == "" && defaultLocale != language.Und {
+		locale = defaultLocale.String()
+	}
 	if locale == "" {
 		return err
 	}

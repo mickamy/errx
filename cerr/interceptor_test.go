@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
+	"golang.org/x/text/language"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 
 	"github.com/mickamy/errx"
@@ -189,6 +190,40 @@ func TestNewInterceptor_Localizable(t *testing.T) {
 				}
 				if lm.GetMessage() != "名前は必須です" { //nolint:gosmopolitan // test i18n
 					t.Errorf("message = %q", lm.GetMessage())
+				}
+			}
+		}
+		if !found {
+			t.Error("LocalizedMessage detail not found")
+		}
+	})
+
+	t.Run("default locale fallback", func(t *testing.T) {
+		t.Parallel()
+		i := cerr.NewInterceptor(
+			cerr.WithDefaultLocale(language.English),
+		)
+		inner := i.WrapUnary(func(_ context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
+			return nil, errx.Wrap(&localizableError{
+				messages: map[string]string{"en": "Name is required"},
+			}).WithCode(errx.InvalidArgument)
+		})
+		// No Accept-Language header.
+		_, err := inner(t.Context(), newTestRequest(http.Header{}))
+		var ce *connect.Error
+		if !errors.As(err, &ce) {
+			t.Fatal("error should be a *connect.Error")
+		}
+		found := false
+		for _, d := range ce.Details() {
+			v, vErr := d.Value()
+			if vErr != nil {
+				continue
+			}
+			if lm, ok := v.(*errdetails.LocalizedMessage); ok {
+				found = true
+				if lm.GetLocale() != "en" || lm.GetMessage() != "Name is required" {
+					t.Errorf("got locale=%q message=%q", lm.GetLocale(), lm.GetMessage())
 				}
 			}
 		}

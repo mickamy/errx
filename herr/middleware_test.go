@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"golang.org/x/text/language"
+
 	"github.com/mickamy/errx"
 	"github.com/mickamy/errx/herr"
 )
@@ -205,6 +207,39 @@ func TestHandler_Localizable_QualityValue(t *testing.T) {
 		t.Errorf("locale = %q, want %q", p.LocalizedMessage.Locale, "ja")
 	}
 	if p.LocalizedMessage.Message != "名前は必須です" { //nolint:gosmopolitan // test i18n
+		t.Errorf("message = %q", p.LocalizedMessage.Message)
+	}
+}
+
+func TestHandler_WithDefaultLocale(t *testing.T) {
+	t.Parallel()
+
+	h := herr.Handler(
+		func(_ http.ResponseWriter, _ *http.Request) error {
+			return errx.Wrap(&localizableError{
+				messages: map[string]string{
+					"en": "Name is required",
+				},
+			}).WithCode(errx.InvalidArgument)
+		},
+		herr.WithDefaultLocale(language.English),
+	)
+
+	// No Accept-Language header — should fall back to default locale.
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	var p herr.ProblemDetail
+	if err := json.NewDecoder(w.Body).Decode(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.LocalizedMessage == nil {
+		t.Fatal("localized_message should not be nil with default locale")
+	}
+	if p.LocalizedMessage.Locale != "en" {
+		t.Errorf("locale = %q, want %q", p.LocalizedMessage.Locale, "en")
+	}
+	if p.LocalizedMessage.Message != "Name is required" {
 		t.Errorf("message = %q", p.LocalizedMessage.Message)
 	}
 }
