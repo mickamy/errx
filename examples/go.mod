@@ -7,6 +7,7 @@ require (
 	github.com/mickamy/errx v0.0.0
 	github.com/mickamy/errx/cerr v0.0.0
 	github.com/mickamy/errx/gerr v0.0.0
+	github.com/mickamy/errx/herr v0.0.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260217215200-42d3e9bedb6d
 	google.golang.org/grpc v1.79.1
 	google.golang.org/grpc/examples v0.0.0-20260220101807-19e41284feb7
@@ -23,4 +24,5 @@ replace (
 	github.com/mickamy/errx => ../
 	github.com/mickamy/errx/cerr => ../cerr
 	github.com/mickamy/errx/gerr => ../gerr
+	github.com/mickamy/errx/herr => ../herr
 )
