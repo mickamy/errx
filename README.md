@@ -63,6 +63,16 @@ errx.CodeOf(ErrPaymentRequired)                  // "payment_required"
 errx.IsCode(ErrPaymentRequired, PaymentRequired) // true
 ```
 
+Custom codes fall back to Unknown/500 by default. Register transport mappings in `init()`:
+
+```go
+func init() {
+    herr.RegisterCode(PaymentRequired, http.StatusPaymentRequired)     // 402
+    gerr.RegisterCode(PaymentRequired, codes.Code(16))                 // custom gRPC code
+    cerr.RegisterCode(PaymentRequired, connect.Code(16))               // custom Connect code
+}
+```
+
 ### Sentinel errors
 
 ```go
@@ -172,6 +182,14 @@ gerr.DebugInfo([]string{"main.go:42"}, "nil pointer")
 gerr.LocalizedMessage("ja", "名前は必須です")
 ```
 
+### Custom code registration
+
+```go
+func init() {
+    gerr.RegisterCode(PaymentRequired, codes.Code(16))
+}
+```
+
 ### Round-trip conversion
 
 ```go
@@ -201,6 +219,14 @@ interceptor := cerr.NewInterceptor(
         return h.Get("X-Locale")
     }),
 )
+```
+
+### Custom code registration
+
+```go
+func init() {
+    cerr.RegisterCode(PaymentRequired, connect.Code(16))
+}
 ```
 
 ### Conversion functions
@@ -250,6 +276,14 @@ mux.Handle("GET /hello", herr.Handler(hello,
         return h.Get("X-Locale")
     }),
 ))
+```
+
+### Custom code registration
+
+```go
+func init() {
+    herr.RegisterCode(PaymentRequired, http.StatusPaymentRequired) // 402
+}
 ```
 
 ### Conversion functions
