@@ -8,6 +8,14 @@ import (
 	"github.com/mickamy/errx"
 )
 
+// RegisterCode registers a custom mapping between an errx.Code and a connect.Code.
+// Both forward (errx → Connect) and reverse (Connect → errx) mappings are registered.
+// Must be called at program initialization (e.g. in init()), before serving requests.
+func RegisterCode(c errx.Code, cc connect.Code) {
+	errxToConnect[c] = cc
+	connectToErrx[cc] = c
+}
+
 // ToConnectCode maps an errx.Code to a connect.Code.
 // Unknown or user-defined codes map to connect.CodeUnknown.
 func ToConnectCode(c errx.Code) connect.Code {

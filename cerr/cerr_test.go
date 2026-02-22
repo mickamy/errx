@@ -11,6 +11,28 @@ import (
 	"github.com/mickamy/errx/cerr"
 )
 
+func TestRegisterCode(t *testing.T) {
+	t.Parallel()
+
+	custom := errx.Code("payment_required")
+	customConnect := connect.Code(100)
+	cerr.RegisterCode(custom, customConnect)
+
+	t.Run("forward lookup", func(t *testing.T) {
+		t.Parallel()
+		if got := cerr.ToConnectCode(custom); got != customConnect {
+			t.Errorf("ToConnectCode(%q) = %v, want %v", custom, got, customConnect)
+		}
+	})
+
+	t.Run("reverse lookup", func(t *testing.T) {
+		t.Parallel()
+		if got := cerr.ToErrxCode(customConnect); got != custom {
+			t.Errorf("ToErrxCode(%v) = %q, want %q", customConnect, got, custom)
+		}
+	})
+}
+
 func TestToConnectCode(t *testing.T) {
 	t.Parallel()
 
