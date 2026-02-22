@@ -142,7 +142,7 @@ func TestToStatus_WithDetails(t *testing.T) {
 		t.Parallel()
 		err := errx.New("bad request").
 			WithCode(errx.InvalidArgument).
-			WithDetails(gerr.FieldViolation("email", "invalid"))
+			WithDetails(errx.FieldViolation("email", "invalid"))
 		st := gerr.ToStatus(err)
 		if st.Code() != codes.InvalidArgument {
 			t.Errorf("code = %v, want InvalidArgument", st.Code())
@@ -175,9 +175,9 @@ func TestToStatus_WithDetails(t *testing.T) {
 		t.Parallel()
 		inner := errx.New("inner").
 			WithCode(errx.InvalidArgument).
-			WithDetails(gerr.FieldViolation("name", "required"))
+			WithDetails(errx.FieldViolation("name", "required"))
 		outer := errx.Wrap(inner).
-			WithDetails(gerr.FieldViolation("email", "invalid"))
+			WithDetails(errx.FieldViolation("email", "invalid"))
 		st := gerr.ToStatus(outer)
 		if len(st.Details()) != 2 {
 			t.Fatalf("details length = %d, want 2", len(st.Details()))
@@ -191,7 +191,11 @@ func TestFromStatus_WithDetails(t *testing.T) {
 	t.Run("details are restored", func(t *testing.T) {
 		t.Parallel()
 		st, err := status.New(codes.InvalidArgument, "bad request").
-			WithDetails(gerr.FieldViolation("email", "invalid"))
+			WithDetails(&errdetails.BadRequest{
+				FieldViolations: []*errdetails.BadRequest_FieldViolation{
+					{Field: "email", Description: "invalid"},
+				},
+			})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -346,7 +350,7 @@ func TestRoundTrip_WithDetails(t *testing.T) {
 	original := errx.New("bad request").
 		WithCode(errx.InvalidArgument).
 		WithDetails(
-			gerr.FieldViolation("email", "invalid"),
+			errx.FieldViolation("email", "invalid"),
 			gerr.LocalizedMessage("en", "Email is invalid"),
 		)
 
