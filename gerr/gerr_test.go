@@ -2,6 +2,7 @@ package gerr_test
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -11,6 +12,25 @@ import (
 	"github.com/mickamy/errx"
 	"github.com/mickamy/errx/gerr"
 )
+
+const testCustomCode errx.Code = "payment_required"
+const testCustomGRPC codes.Code = 100
+
+func TestMain(m *testing.M) {
+	gerr.RegisterCode(testCustomCode, testCustomGRPC)
+	os.Exit(m.Run())
+}
+
+func TestRegisterCode(t *testing.T) {
+	t.Parallel()
+
+	if got := gerr.ToGRPCCode(testCustomCode); got != testCustomGRPC {
+		t.Errorf("ToGRPCCode(%q) = %v, want %v", testCustomCode, got, testCustomGRPC)
+	}
+	if got := gerr.ToErrxCode(testCustomGRPC); got != testCustomCode {
+		t.Errorf("ToErrxCode(%v) = %q, want %q", testCustomGRPC, got, testCustomCode)
+	}
+}
 
 func TestToGRPCCode(t *testing.T) {
 	t.Parallel()

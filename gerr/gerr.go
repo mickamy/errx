@@ -9,6 +9,14 @@ import (
 	"github.com/mickamy/errx"
 )
 
+// RegisterCode registers a custom mapping between an errx.Code and a gRPC codes.Code.
+// Both forward (errx → gRPC) and reverse (gRPC → errx) mappings are registered.
+// Must be called at program initialization (e.g. in init()), before serving requests.
+func RegisterCode(c errx.Code, gc codes.Code) {
+	errxToGRPC[c] = gc
+	grpcToErrx[gc] = c
+}
+
 // ToGRPCCode maps an errx.Code to a gRPC codes.Code.
 // Unknown or user-defined codes map to codes.Unknown.
 func ToGRPCCode(c errx.Code) codes.Code {

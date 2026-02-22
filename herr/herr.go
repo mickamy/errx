@@ -7,6 +7,14 @@ import (
 	"github.com/mickamy/errx"
 )
 
+// RegisterCode registers a custom mapping between an errx.Code and an HTTP status code.
+// Both forward (errx → HTTP) and reverse (HTTP → errx) mappings are registered.
+// Must be called at program initialization (e.g. in init()), before serving requests.
+func RegisterCode(c errx.Code, status int) {
+	errxToHTTP[c] = status
+	httpToErrx[status] = c
+}
+
 // ToHTTPStatus maps an errx.Code to an HTTP status code.
 // Unknown or user-defined codes map to 500.
 func ToHTTPStatus(c errx.Code) int {
@@ -80,9 +88,14 @@ func ToProblemDetail(err error, opts ...ProblemDetailOption) *ProblemDetail {
 		code = string(errx.Unknown)
 	}
 
+	title := http.StatusText(status)
+	if title == "" {
+		title = code
+	}
+
 	p := &ProblemDetail{
 		Type:   "about:blank",
-		Title:  http.StatusText(status),
+		Title:  title,
 		Status: status,
 		Detail: err.Error(),
 		Code:   code,

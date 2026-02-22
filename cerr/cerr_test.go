@@ -2,6 +2,7 @@ package cerr_test
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -10,6 +11,25 @@ import (
 	"github.com/mickamy/errx"
 	"github.com/mickamy/errx/cerr"
 )
+
+const testCustomCode errx.Code = "payment_required"
+const testCustomConnect connect.Code = 100
+
+func TestMain(m *testing.M) {
+	cerr.RegisterCode(testCustomCode, testCustomConnect)
+	os.Exit(m.Run())
+}
+
+func TestRegisterCode(t *testing.T) {
+	t.Parallel()
+
+	if got := cerr.ToConnectCode(testCustomCode); got != testCustomConnect {
+		t.Errorf("ToConnectCode(%q) = %v, want %v", testCustomCode, got, testCustomConnect)
+	}
+	if got := cerr.ToErrxCode(testCustomConnect); got != testCustomCode {
+		t.Errorf("ToErrxCode(%v) = %q, want %q", testCustomConnect, got, testCustomCode)
+	}
+}
 
 func TestToConnectCode(t *testing.T) {
 	t.Parallel()

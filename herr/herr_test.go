@@ -5,11 +5,30 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/mickamy/errx"
 	"github.com/mickamy/errx/herr"
 )
+
+const testCustomCode errx.Code = "payment_required"
+
+func TestMain(m *testing.M) {
+	herr.RegisterCode(testCustomCode, http.StatusPaymentRequired)
+	os.Exit(m.Run())
+}
+
+func TestRegisterCode(t *testing.T) {
+	t.Parallel()
+
+	if got := herr.ToHTTPStatus(testCustomCode); got != http.StatusPaymentRequired {
+		t.Errorf("ToHTTPStatus(%q) = %d, want %d", testCustomCode, got, http.StatusPaymentRequired)
+	}
+	if got := herr.ToErrxCode(http.StatusPaymentRequired); got != testCustomCode {
+		t.Errorf("ToErrxCode(%d) = %q, want %q", http.StatusPaymentRequired, got, testCustomCode)
+	}
+}
 
 func TestToHTTPStatus(t *testing.T) {
 	t.Parallel()
@@ -108,6 +127,18 @@ func TestToProblemDetail(t *testing.T) {
 		}
 		if p.Code != "not_found" {
 			t.Errorf("Code = %q, want %q", p.Code, "not_found")
+		}
+	})
+
+	t.Run("non-standard status code falls back to code string for title", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("client closed").WithCode(errx.Canceled)
+		p := herr.ToProblemDetail(err)
+		if p.Status != 499 {
+			t.Errorf("Status = %d, want 499", p.Status)
+		}
+		if p.Title != "canceled" {
+			t.Errorf("Title = %q, want %q", p.Title, "canceled")
 		}
 	})
 
