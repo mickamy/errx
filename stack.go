@@ -16,7 +16,9 @@ func (s *Stack) Frames() []Frame {
 	if s == nil {
 		return nil
 	}
-	return s.frames
+	cp := make([]Frame, len(s.frames))
+	copy(cp, s.frames)
+	return cp
 }
 
 // Frame represents a single stack frame.

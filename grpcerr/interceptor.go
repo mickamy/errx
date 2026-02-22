@@ -21,6 +21,9 @@ type interceptorConfig struct {
 // The default extracts the first value of the "accept-language" gRPC metadata key.
 func WithLocaleFunc(f func(context.Context) string) InterceptorOption {
 	return func(cfg *interceptorConfig) {
+		if f == nil {
+			return
+		}
 		cfg.localeFunc = f
 	}
 }
