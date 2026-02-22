@@ -162,76 +162,6 @@ func TestNewInterceptor_Localizable(t *testing.T) {
 		}
 	})
 
-	t.Run("quality value selects highest priority", func(t *testing.T) {
-		t.Parallel()
-		i := cerr.NewInterceptor()
-		inner := i.WrapUnary(func(_ context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
-			return nil, errx.Wrap(&localizableError{
-				messages: map[string]string{"ja": "名前は必須です"}, //nolint:gosmopolitan // test i18n
-			}).WithCode(errx.InvalidArgument)
-		})
-		header := http.Header{}
-		header.Set("Accept-Language", "ja,en-US;q=0.9,en;q=0.8")
-		_, err := inner(t.Context(), newTestRequest(header))
-		var ce *connect.Error
-		if !errors.As(err, &ce) {
-			t.Fatal("error should be a *connect.Error")
-		}
-		found := false
-		for _, d := range ce.Details() {
-			v, vErr := d.Value()
-			if vErr != nil {
-				continue
-			}
-			if lm, ok := v.(*errdetails.LocalizedMessage); ok {
-				found = true
-				if lm.GetLocale() != "ja" {
-					t.Errorf("locale = %q, want %q", lm.GetLocale(), "ja")
-				}
-				if lm.GetMessage() != "名前は必須です" { //nolint:gosmopolitan // test i18n
-					t.Errorf("message = %q", lm.GetMessage())
-				}
-			}
-		}
-		if !found {
-			t.Error("LocalizedMessage detail not found")
-		}
-	})
-
-	t.Run("default locale fallback", func(t *testing.T) {
-		t.Parallel()
-		i := cerr.NewInterceptor(
-			cerr.WithDefaultLocale(language.English),
-		)
-		inner := i.WrapUnary(func(_ context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
-			return nil, errx.Wrap(&localizableError{
-				messages: map[string]string{"en": "Name is required"},
-			}).WithCode(errx.InvalidArgument)
-		})
-		// No Accept-Language header.
-		_, err := inner(t.Context(), newTestRequest(http.Header{}))
-		var ce *connect.Error
-		if !errors.As(err, &ce) {
-			t.Fatal("error should be a *connect.Error")
-		}
-		found := false
-		for _, d := range ce.Details() {
-			v, vErr := d.Value()
-			if vErr != nil {
-				continue
-			}
-			if lm, ok := v.(*errdetails.LocalizedMessage); ok {
-				found = true
-				if lm.GetLocale() != "en" || lm.GetMessage() != "Name is required" {
-					t.Errorf("got locale=%q message=%q", lm.GetLocale(), lm.GetMessage())
-				}
-			}
-		}
-		if !found {
-			t.Error("LocalizedMessage detail not found")
-		}
-	})
-
 	t.Run("custom locale func", func(t *testing.T) {
 		t.Parallel()
 		i := cerr.NewInterceptor(
@@ -264,6 +194,78 @@ func TestNewInterceptor_Localizable(t *testing.T) {
 			t.Error("LocalizedMessage detail not found")
 		}
 	})
+}
+
+func TestNewInterceptor_QualityValue(t *testing.T) {
+	t.Parallel()
+
+	i := cerr.NewInterceptor()
+	inner := i.WrapUnary(func(_ context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
+		return nil, errx.Wrap(&localizableError{
+			messages: map[string]string{"ja": "名前は必須です"}, //nolint:gosmopolitan // test i18n
+		}).WithCode(errx.InvalidArgument)
+	})
+	header := http.Header{}
+	header.Set("Accept-Language", "ja,en-US;q=0.9,en;q=0.8")
+	_, err := inner(t.Context(), newTestRequest(header))
+	var ce *connect.Error
+	if !errors.As(err, &ce) {
+		t.Fatal("error should be a *connect.Error")
+	}
+	found := false
+	for _, d := range ce.Details() {
+		v, vErr := d.Value()
+		if vErr != nil {
+			continue
+		}
+		if lm, ok := v.(*errdetails.LocalizedMessage); ok {
+			found = true
+			if lm.GetLocale() != "ja" {
+				t.Errorf("locale = %q, want %q", lm.GetLocale(), "ja")
+			}
+			if lm.GetMessage() != "名前は必須です" { //nolint:gosmopolitan // test i18n
+				t.Errorf("message = %q", lm.GetMessage())
+			}
+		}
+	}
+	if !found {
+		t.Error("LocalizedMessage detail not found")
+	}
+}
+
+func TestNewInterceptor_DefaultLocale(t *testing.T) {
+	t.Parallel()
+
+	i := cerr.NewInterceptor(
+		cerr.WithDefaultLocale(language.English),
+	)
+	inner := i.WrapUnary(func(_ context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
+		return nil, errx.Wrap(&localizableError{
+			messages: map[string]string{"en": "Name is required"},
+		}).WithCode(errx.InvalidArgument)
+	})
+	// No Accept-Language header.
+	_, err := inner(t.Context(), newTestRequest(http.Header{}))
+	var ce *connect.Error
+	if !errors.As(err, &ce) {
+		t.Fatal("error should be a *connect.Error")
+	}
+	found := false
+	for _, d := range ce.Details() {
+		v, vErr := d.Value()
+		if vErr != nil {
+			continue
+		}
+		if lm, ok := v.(*errdetails.LocalizedMessage); ok {
+			found = true
+			if lm.GetLocale() != "en" || lm.GetMessage() != "Name is required" {
+				t.Errorf("got locale=%q message=%q", lm.GetLocale(), lm.GetMessage())
+			}
+		}
+	}
+	if !found {
+		t.Error("LocalizedMessage detail not found")
+	}
 }
 
 func TestNewInterceptor_StreamingHandler(t *testing.T) {

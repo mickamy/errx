@@ -212,71 +212,6 @@ func TestUnaryServerInterceptor_Localizable(t *testing.T) {
 		}
 	})
 
-	t.Run("quality value selects highest priority", func(t *testing.T) {
-		t.Parallel()
-		interceptor := gerr.UnaryServerInterceptor()
-		ctx := metadata.NewIncomingContext(t.Context(), metadata.Pairs("accept-language", "ja,en-US;q=0.9,en;q=0.8"))
-		_, err := interceptor(
-			ctx, "req", &grpc.UnaryServerInfo{},
-			func(_ context.Context, _ any) (any, error) {
-				return nil, errx.Wrap(&localizableError{
-					messages: map[string]string{"ja": "名前は必須です"}, //nolint:gosmopolitan // test i18n
-				}).WithCode(errx.InvalidArgument)
-			},
-		)
-		st, ok := status.FromError(err)
-		if !ok {
-			t.Fatal("error should be a gRPC status error")
-		}
-		found := false
-		for _, d := range st.Details() {
-			if lm, ok := d.(*errdetails.LocalizedMessage); ok {
-				found = true
-				if lm.GetLocale() != "ja" {
-					t.Errorf("locale = %q, want %q", lm.GetLocale(), "ja")
-				}
-				if lm.GetMessage() != "名前は必須です" { //nolint:gosmopolitan // test i18n
-					t.Errorf("message = %q", lm.GetMessage())
-				}
-			}
-		}
-		if !found {
-			t.Error("LocalizedMessage detail not found")
-		}
-	})
-
-	t.Run("default locale fallback", func(t *testing.T) {
-		t.Parallel()
-		interceptor := gerr.UnaryServerInterceptor(
-			gerr.WithDefaultLocale(language.English),
-		)
-		// No metadata — should fall back to default locale.
-		_, err := interceptor(
-			t.Context(), "req", &grpc.UnaryServerInfo{},
-			func(_ context.Context, _ any) (any, error) {
-				return nil, errx.Wrap(&localizableError{
-					messages: map[string]string{"en": "Name is required"},
-				}).WithCode(errx.InvalidArgument)
-			},
-		)
-		st, ok := status.FromError(err)
-		if !ok {
-			t.Fatal("error should be a gRPC status error")
-		}
-		found := false
-		for _, d := range st.Details() {
-			if lm, ok := d.(*errdetails.LocalizedMessage); ok {
-				found = true
-				if lm.GetLocale() != "en" || lm.GetMessage() != "Name is required" {
-					t.Errorf("got locale=%q message=%q", lm.GetLocale(), lm.GetMessage())
-				}
-			}
-		}
-		if !found {
-			t.Error("LocalizedMessage detail not found")
-		}
-	})
-
 	t.Run("custom locale func", func(t *testing.T) {
 		t.Parallel()
 		interceptor := gerr.UnaryServerInterceptor(
@@ -307,6 +242,73 @@ func TestUnaryServerInterceptor_Localizable(t *testing.T) {
 			t.Error("LocalizedMessage detail not found")
 		}
 	})
+}
+
+func TestUnaryServerInterceptor_QualityValue(t *testing.T) {
+	t.Parallel()
+
+	interceptor := gerr.UnaryServerInterceptor()
+	ctx := metadata.NewIncomingContext(t.Context(), metadata.Pairs("accept-language", "ja,en-US;q=0.9,en;q=0.8"))
+	_, err := interceptor(
+		ctx, "req", &grpc.UnaryServerInfo{},
+		func(_ context.Context, _ any) (any, error) {
+			return nil, errx.Wrap(&localizableError{
+				messages: map[string]string{"ja": "名前は必須です"}, //nolint:gosmopolitan // test i18n
+			}).WithCode(errx.InvalidArgument)
+		},
+	)
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatal("error should be a gRPC status error")
+	}
+	found := false
+	for _, d := range st.Details() {
+		if lm, ok := d.(*errdetails.LocalizedMessage); ok {
+			found = true
+			if lm.GetLocale() != "ja" {
+				t.Errorf("locale = %q, want %q", lm.GetLocale(), "ja")
+			}
+			if lm.GetMessage() != "名前は必須です" { //nolint:gosmopolitan // test i18n
+				t.Errorf("message = %q", lm.GetMessage())
+			}
+		}
+	}
+	if !found {
+		t.Error("LocalizedMessage detail not found")
+	}
+}
+
+func TestUnaryServerInterceptor_DefaultLocale(t *testing.T) {
+	t.Parallel()
+
+	interceptor := gerr.UnaryServerInterceptor(
+		gerr.WithDefaultLocale(language.English),
+	)
+	// No metadata — should fall back to default locale.
+	_, err := interceptor(
+		t.Context(), "req", &grpc.UnaryServerInfo{},
+		func(_ context.Context, _ any) (any, error) {
+			return nil, errx.Wrap(&localizableError{
+				messages: map[string]string{"en": "Name is required"},
+			}).WithCode(errx.InvalidArgument)
+		},
+	)
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatal("error should be a gRPC status error")
+	}
+	found := false
+	for _, d := range st.Details() {
+		if lm, ok := d.(*errdetails.LocalizedMessage); ok {
+			found = true
+			if lm.GetLocale() != "en" || lm.GetMessage() != "Name is required" {
+				t.Errorf("got locale=%q message=%q", lm.GetLocale(), lm.GetMessage())
+			}
+		}
+	}
+	if !found {
+		t.Error("LocalizedMessage detail not found")
+	}
 }
 
 func TestStreamServerInterceptor_Localizable(t *testing.T) {
