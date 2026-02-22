@@ -1,4 +1,4 @@
-package grpcerr
+package gerr
 
 import (
 	"context"
@@ -95,7 +95,7 @@ func StreamServerInterceptor(opts ...InterceptorOption) grpc.StreamServerInterce
 // appending a LocalizedMessage detail if the error implements errx.Localizable.
 func (cfg *interceptorConfig) toStatusError(ctx context.Context, err error) error {
 	err = appendLocalizedDetail(ctx, err, cfg.localeFunc)
-	return ToStatus(err).Err()
+	return ToStatus(err).Err() //nolint:wrapcheck // intentionally returns gRPC status error
 }
 
 // appendLocalizedDetail checks if the error (or any error in its chain)

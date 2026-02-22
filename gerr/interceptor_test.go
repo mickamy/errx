@@ -1,4 +1,4 @@
-package grpcerr_test
+package gerr_test
 
 import (
 	"context"
@@ -12,13 +12,13 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/mickamy/errx"
-	"github.com/mickamy/errx/grpcerr"
+	"github.com/mickamy/errx/gerr"
 )
 
 func TestUnaryServerInterceptor(t *testing.T) {
 	t.Parallel()
 
-	interceptor := grpcerr.UnaryServerInterceptor()
+	interceptor := gerr.UnaryServerInterceptor()
 
 	t.Run("no error", func(t *testing.T) {
 		t.Parallel()
@@ -77,7 +77,8 @@ func TestUnaryServerInterceptor(t *testing.T) {
 // fakeServerStream is a minimal grpc.ServerStream for testing.
 type fakeServerStream struct {
 	grpc.ServerStream
-	ctx context.Context
+
+	ctx context.Context //nolint:containedctx // test helper
 }
 
 func (f *fakeServerStream) Context() context.Context { return f.ctx }
@@ -85,7 +86,7 @@ func (f *fakeServerStream) Context() context.Context { return f.ctx }
 func TestStreamServerInterceptor(t *testing.T) {
 	t.Parallel()
 
-	interceptor := grpcerr.StreamServerInterceptor()
+	interceptor := gerr.StreamServerInterceptor()
 
 	t.Run("no error", func(t *testing.T) {
 		t.Parallel()
@@ -136,13 +137,13 @@ func TestUnaryServerInterceptor_Localizable(t *testing.T) {
 
 	t.Run("auto-appends LocalizedMessage from metadata", func(t *testing.T) {
 		t.Parallel()
-		interceptor := grpcerr.UnaryServerInterceptor()
+		interceptor := gerr.UnaryServerInterceptor()
 		ctx := metadata.NewIncomingContext(t.Context(), metadata.Pairs("accept-language", "ja"))
 		_, err := interceptor(
 			ctx, "req", &grpc.UnaryServerInfo{},
 			func(_ context.Context, _ any) (any, error) {
 				return nil, errx.Wrap(&localizableError{
-					messages: map[string]string{"ja": "名前は必須です"},
+					messages: map[string]string{"ja": "名前は必須です"}, //nolint:gosmopolitan // test i18n
 				}).WithCode(errx.InvalidArgument)
 			},
 		)
@@ -157,8 +158,8 @@ func TestUnaryServerInterceptor_Localizable(t *testing.T) {
 				if lm.GetLocale() != "ja" {
 					t.Errorf("locale = %q, want %q", lm.GetLocale(), "ja")
 				}
-				if lm.GetMessage() != "名前は必須です" {
-					t.Errorf("message = %q, want %q", lm.GetMessage(), "名前は必須です")
+				if lm.GetMessage() != "名前は必須です" { //nolint:gosmopolitan // test i18n
+					t.Errorf("message = %q, want %q", lm.GetMessage(), "名前は必須です") //nolint:gosmopolitan // test i18n
 				}
 			}
 		}
@@ -169,7 +170,7 @@ func TestUnaryServerInterceptor_Localizable(t *testing.T) {
 
 	t.Run("no metadata means no LocalizedMessage", func(t *testing.T) {
 		t.Parallel()
-		interceptor := grpcerr.UnaryServerInterceptor()
+		interceptor := gerr.UnaryServerInterceptor()
 		_, err := interceptor(
 			t.Context(), "req", &grpc.UnaryServerInfo{},
 			func(_ context.Context, _ any) (any, error) {
@@ -191,7 +192,7 @@ func TestUnaryServerInterceptor_Localizable(t *testing.T) {
 
 	t.Run("non-Localizable error is unchanged", func(t *testing.T) {
 		t.Parallel()
-		interceptor := grpcerr.UnaryServerInterceptor()
+		interceptor := gerr.UnaryServerInterceptor()
 		ctx := metadata.NewIncomingContext(t.Context(), metadata.Pairs("accept-language", "en"))
 		_, err := interceptor(
 			ctx, "req", &grpc.UnaryServerInfo{},
@@ -212,8 +213,8 @@ func TestUnaryServerInterceptor_Localizable(t *testing.T) {
 
 	t.Run("custom locale func", func(t *testing.T) {
 		t.Parallel()
-		interceptor := grpcerr.UnaryServerInterceptor(
-			grpcerr.WithLocaleFunc(func(_ context.Context) string { return "fr" }),
+		interceptor := gerr.UnaryServerInterceptor(
+			gerr.WithLocaleFunc(func(_ context.Context) string { return "fr" }),
 		)
 		_, err := interceptor(
 			t.Context(), "req", &grpc.UnaryServerInfo{},
@@ -245,7 +246,7 @@ func TestUnaryServerInterceptor_Localizable(t *testing.T) {
 func TestStreamServerInterceptor_Localizable(t *testing.T) {
 	t.Parallel()
 
-	interceptor := grpcerr.StreamServerInterceptor()
+	interceptor := gerr.StreamServerInterceptor()
 	ctx := metadata.NewIncomingContext(t.Context(), metadata.Pairs("accept-language", "en"))
 	ss := &fakeServerStream{ctx: ctx}
 
@@ -277,4 +278,3 @@ func TestStreamServerInterceptor_Localizable(t *testing.T) {
 
 // Ensure localizableError implements errx.Localizable at compile time.
 var _ errx.Localizable = (*localizableError)(nil)
-

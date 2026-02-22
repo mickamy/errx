@@ -1,4 +1,4 @@
-package grpcerr_test
+package gerr_test
 
 import (
 	"testing"
@@ -6,13 +6,13 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/mickamy/errx/grpcerr"
+	"github.com/mickamy/errx/gerr"
 )
 
 func TestFieldViolation(t *testing.T) {
 	t.Parallel()
 
-	br := grpcerr.FieldViolation("email", "must be valid")
+	br := gerr.FieldViolation("email", "must be valid")
 	if len(br.GetFieldViolations()) != 1 {
 		t.Fatalf("violations length = %d, want 1", len(br.GetFieldViolations()))
 	}
@@ -25,9 +25,9 @@ func TestFieldViolation(t *testing.T) {
 func TestBadRequest(t *testing.T) {
 	t.Parallel()
 
-	br := grpcerr.BadRequest(
-		grpcerr.NewFieldViolation("name", "required"),
-		grpcerr.NewFieldViolation("age", "must be positive"),
+	br := gerr.BadRequest(
+		gerr.NewFieldViolation("name", "required"),
+		gerr.NewFieldViolation("age", "must be positive"),
 	)
 	if len(br.GetFieldViolations()) != 2 {
 		t.Fatalf("violations length = %d, want 2", len(br.GetFieldViolations()))
@@ -37,8 +37,8 @@ func TestBadRequest(t *testing.T) {
 func TestPreconditionFailure(t *testing.T) {
 	t.Parallel()
 
-	pf := grpcerr.PreconditionFailure(
-		grpcerr.NewPreconditionViolation("TOS", "user/123", "Terms not accepted"),
+	pf := gerr.PreconditionFailure(
+		gerr.NewPreconditionViolation("TOS", "user/123", "Terms not accepted"),
 	)
 	if len(pf.GetViolations()) != 1 {
 		t.Fatalf("violations length = %d, want 1", len(pf.GetViolations()))
@@ -52,8 +52,8 @@ func TestPreconditionFailure(t *testing.T) {
 func TestQuotaFailure(t *testing.T) {
 	t.Parallel()
 
-	qf := grpcerr.QuotaFailure(
-		grpcerr.NewQuotaViolation("project:abc", "RPM limit exceeded"),
+	qf := gerr.QuotaFailure(
+		gerr.NewQuotaViolation("project:abc", "RPM limit exceeded"),
 	)
 	if len(qf.GetViolations()) != 1 {
 		t.Fatalf("violations length = %d, want 1", len(qf.GetViolations()))
@@ -67,7 +67,7 @@ func TestQuotaFailure(t *testing.T) {
 func TestResourceInfo(t *testing.T) {
 	t.Parallel()
 
-	ri := grpcerr.ResourceInfo("user", "user/123", "admin", "not found")
+	ri := gerr.ResourceInfo("user", "user/123", "admin", "not found")
 	if ri.GetResourceType() != "user" || ri.GetResourceName() != "user/123" {
 		t.Errorf("got type=%q name=%q", ri.GetResourceType(), ri.GetResourceName())
 	}
@@ -79,7 +79,7 @@ func TestResourceInfo(t *testing.T) {
 func TestErrorInfo(t *testing.T) {
 	t.Parallel()
 
-	ei := grpcerr.ErrorInfo("RATE_LIMITED", "example.com", map[string]string{"limit": "100"})
+	ei := gerr.ErrorInfo("RATE_LIMITED", "example.com", map[string]string{"limit": "100"})
 	if ei.GetReason() != "RATE_LIMITED" || ei.GetDomain() != "example.com" {
 		t.Errorf("got reason=%q domain=%q", ei.GetReason(), ei.GetDomain())
 	}
@@ -91,7 +91,7 @@ func TestErrorInfo(t *testing.T) {
 func TestRetryInfo(t *testing.T) {
 	t.Parallel()
 
-	ri := grpcerr.RetryInfo(5 * time.Second)
+	ri := gerr.RetryInfo(5 * time.Second)
 	got := ri.GetRetryDelay().AsDuration()
 	if got != 5*time.Second {
 		t.Errorf("retry delay = %v, want 5s", got)
@@ -101,7 +101,7 @@ func TestRetryInfo(t *testing.T) {
 func TestDebugInfo(t *testing.T) {
 	t.Parallel()
 
-	di := grpcerr.DebugInfo([]string{"main.go:42", "handler.go:10"}, "something broke")
+	di := gerr.DebugInfo([]string{"main.go:42", "handler.go:10"}, "something broke")
 	if len(di.GetStackEntries()) != 2 {
 		t.Fatalf("stack entries length = %d, want 2", len(di.GetStackEntries()))
 	}
@@ -113,8 +113,8 @@ func TestDebugInfo(t *testing.T) {
 func TestLocalizedMessage(t *testing.T) {
 	t.Parallel()
 
-	lm := grpcerr.LocalizedMessage("ja", "名前は必須です")
-	if lm.GetLocale() != "ja" || lm.GetMessage() != "名前は必須です" {
+	lm := gerr.LocalizedMessage("ja", "名前は必須です")                //nolint:gosmopolitan // test i18n
+	if lm.GetLocale() != "ja" || lm.GetMessage() != "名前は必須です" { //nolint:gosmopolitan // test i18n
 		t.Errorf("got locale=%q message=%q", lm.GetLocale(), lm.GetMessage())
 	}
 }
@@ -125,15 +125,15 @@ func TestHelpers_ReturnProtoMessage(t *testing.T) {
 	// Verify all helpers return types that implement proto.Message,
 	// which is required for gRPC status details.
 	messages := []proto.Message{
-		grpcerr.FieldViolation("f", "d"),
-		grpcerr.BadRequest(),
-		grpcerr.PreconditionFailure(),
-		grpcerr.QuotaFailure(),
-		grpcerr.ResourceInfo("", "", "", ""),
-		grpcerr.ErrorInfo("", "", nil),
-		grpcerr.RetryInfo(0),
-		grpcerr.DebugInfo(nil, ""),
-		grpcerr.LocalizedMessage("", ""),
+		gerr.FieldViolation("f", "d"),
+		gerr.BadRequest(),
+		gerr.PreconditionFailure(),
+		gerr.QuotaFailure(),
+		gerr.ResourceInfo("", "", "", ""),
+		gerr.ErrorInfo("", "", nil),
+		gerr.RetryInfo(0),
+		gerr.DebugInfo(nil, ""),
+		gerr.LocalizedMessage("", ""),
 	}
 	for i, m := range messages {
 		if m == nil {
