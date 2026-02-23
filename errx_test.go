@@ -279,6 +279,29 @@ func TestWithDetails(t *testing.T) {
 	})
 }
 
+func TestWithFieldViolation(t *testing.T) {
+	t.Parallel()
+
+	err := errx.New("bad request").
+		WithCode(errx.InvalidArgument).
+		WithFieldViolation("email", "invalid format")
+
+	details := errx.DetailsOf(err)
+	if len(details) != 1 {
+		t.Fatalf("DetailsOf length = %d, want 1", len(details))
+	}
+	br, ok := details[0].(*errx.BadRequestDetail)
+	if !ok {
+		t.Fatalf("detail type = %T, want *errx.BadRequestDetail", details[0])
+	}
+	if len(br.Violations) != 1 {
+		t.Fatalf("violations length = %d, want 1", len(br.Violations))
+	}
+	if br.Violations[0].Field != "email" || br.Violations[0].Description != "invalid format" {
+		t.Errorf("violation = %+v, want {email, invalid format}", br.Violations[0])
+	}
+}
+
 func TestDetailsOf(t *testing.T) {
 	t.Parallel()
 

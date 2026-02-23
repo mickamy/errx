@@ -76,6 +76,11 @@ func (e *Error) WithDetails(details ...any) *Error {
 	return &cp
 }
 
+// WithFieldViolation is a shorthand for WithDetails(FieldViolation(field, description)).
+func (e *Error) WithFieldViolation(field, description string) *Error {
+	return e.WithDetails(FieldViolation(field, description))
+}
+
 // Error implements the error interface.
 func (e *Error) Error() string {
 	if e.msg == "" && e.cause != nil {
