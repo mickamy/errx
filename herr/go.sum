@@ -1,2 +1,4 @@
+github.com/mickamy/errx v0.0.4 h1:Dq1Ddlb53qfFuNWv1upC2ssVkFinyUi3HJdzG+YGSYs=
+github.com/mickamy/errx v0.0.4/go.mod h1:74tLUf/ldRG+mSWC1pJSPvUObnP9kHJfSEf7Z+3PXT0=
 golang.org/x/text v0.34.0 h1:oL/Qq0Kdaqxa1KbNeMKwQq0reLCCaFtqu2eNuSeNHbk=
 golang.org/x/text v0.34.0/go.mod h1:homfLqTYRFyVYemLBFl5GgL/DWEiH5wcsQ5gSh1yziA=
