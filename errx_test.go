@@ -346,6 +346,47 @@ func TestDetailsOf(t *testing.T) {
 	})
 }
 
+func TestErr_ErrorsAs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("matches *Error", func(t *testing.T) {
+		t.Parallel()
+		err := errx.New("something failed").WithCode(errx.Internal)
+		var ex errx.Err
+		if !errors.As(err, &ex) {
+			t.Fatal("errors.As should match *Error as Err")
+		}
+		if ex.Code() != errx.Internal {
+			t.Errorf("Code() = %q, want %q", ex.Code(), errx.Internal)
+		}
+	})
+
+	t.Run("matches *SentinelError", func(t *testing.T) {
+		t.Parallel()
+		sentinel := errx.NewSentinel("not found", errx.NotFound)
+		var ex errx.Err
+		if !errors.As(sentinel, &ex) {
+			t.Fatal("errors.As should match *SentinelError as Err")
+		}
+		if ex.Code() != errx.NotFound {
+			t.Errorf("Code() = %q, want %q", ex.Code(), errx.NotFound)
+		}
+	})
+
+	t.Run("matches wrapped SentinelError", func(t *testing.T) {
+		t.Parallel()
+		sentinel := errx.NewSentinel("not found", errx.NotFound)
+		err := errx.Wrap(sentinel, "id", 42)
+		var ex errx.Err
+		if !errors.As(err, &ex) {
+			t.Fatal("errors.As should match through Wrap")
+		}
+		if ex.Code() != errx.NotFound {
+			t.Errorf("Code() = %q, want %q", ex.Code(), errx.NotFound)
+		}
+	})
+}
+
 func TestArgsToAttrs_SlogAttr(t *testing.T) {
 	t.Parallel()
 

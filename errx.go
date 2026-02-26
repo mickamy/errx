@@ -6,6 +6,24 @@ import (
 	"log/slog"
 )
 
+// Err is the common interface implemented by both [*Error] and [*SentinelError].
+// Use this with [errors.As] to match either type transparently:
+//
+//	var ex errx.Err
+//	if errors.As(err, &ex) {
+//	    code := ex.Code()
+//	}
+type Err interface {
+	error
+	Code() Code
+}
+
+// compile-time checks
+var (
+	_ Err = (*Error)(nil)
+	_ Err = (*SentinelError)(nil)
+)
+
 // Error is a structured error that carries a message, optional cause,
 // classification code, structured fields, an optional stack trace,
 // and arbitrary detail objects (e.g. proto.Message for gRPC error details).
