@@ -3,6 +3,6 @@ module github.com/mickamy/errx/herr
 go 1.25.0
 
 require (
-	github.com/mickamy/errx v0.0.4
+	github.com/mickamy/errx v0.0.5
 	golang.org/x/text v0.34.0
 )
